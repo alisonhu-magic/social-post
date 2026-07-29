@@ -72,6 +72,21 @@
   #gl{display:block; width:100%; height:auto; opacity:0; transition:opacity .4s ease-in-out}
   #gl.ready{opacity:1}
   .mask{position:absolute; inset:0; pointer-events:none}
+  /* floating canvas toolbar (Reseed / Pause) — appears on hover */
+  .stagebar{position:absolute; top:10px; right:10px; display:flex; gap:6px; z-index:6;
+    opacity:0; transform:translateY(-4px); pointer-events:none;
+    transition:opacity .15s ease, transform .15s ease}
+  .canvas-wrap:hover .stagebar, .stagebar:focus-within{opacity:1; transform:none; pointer-events:auto}
+  .tbtn{all:unset; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center;
+    width:32px; height:32px; border-radius:var(--radius-md); cursor:pointer; color:#fff;
+    background:rgba(16,24,40,.55); border:1px solid rgba(255,255,255,.18);
+    -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); transition:background .12s ease}
+  .tbtn:hover{background:rgba(16,24,40,.82)}
+  .tbtn:focus-visible{box-shadow:var(--ring)}
+  .tbtn svg{width:16px; height:16px; display:block}
+  .tbtn .ic-play{display:none}
+  .tbtn[aria-pressed=true] .ic-play{display:block}
+  .tbtn[aria-pressed=true] .ic-pause{display:none}
 
   .stagefoot{
     display:flex; gap:var(--s5); align-items:center; flex-wrap:wrap;
@@ -93,9 +108,52 @@
   .group > h2{
     margin:0 0 var(--s4); font-size:14px; font-weight:600; color:var(--gray-700);
   }
+  /* bucket label between clusters of sections */
+  .railgroup{
+    padding:var(--s5) var(--s5) var(--s2); font-size:11px; font-weight:700;
+    letter-spacing:.09em; text-transform:uppercase; color:var(--gray-400);
+    background:#fff; border-bottom:1px solid var(--gray-200);
+  }
+  /* collapsible section headers (accordion) */
+  .group > h2{cursor:pointer; user-select:none}
+  .group.collapsed > h2{margin-bottom:0}
+  .group.collapsed > *:not(h2){display:none}
+  .group > h2::after{
+    content:''; margin-left:auto; flex:none; width:8px; height:8px;
+    border-right:1.6px solid var(--gray-400); border-bottom:1.6px solid var(--gray-400);
+    transform:rotate(45deg); transition:transform .18s ease;
+  }
+  .group.collapsed > h2::after{transform:rotate(-45deg)}
+  /* Marks header: lock stays flush-right and tight against the collapse arrow
+     (only the lock keeps margin-left:auto; the chevron sits right beside it) */
+  #marksGroup > h2::after{margin-left:-2px}
   .row{display:flex; align-items:center; justify-content:space-between; gap:var(--s3); margin-bottom:var(--s2)}
   label.lbl{font-size:14px; font-weight:500; color:var(--gray-700)}
   .val{font-size:14px; color:var(--gray-600); min-width:56px; text-align:right; font-variant-numeric:tabular-nums}
+  /* editable numeric value (Figma/Affinity style click-to-type) */
+  input.val{all:unset; box-sizing:border-box; width:58px; min-width:58px; text-align:right; cursor:text;
+    font-size:14px; color:var(--gray-700); font-variant-numeric:tabular-nums;
+    padding:2px 6px; border:1px solid transparent; border-radius:var(--radius-sm); transition:border-color .12s ease}
+  input.val:hover{border-color:var(--gray-200); background:var(--gray-25)}
+  input.val:focus{border-color:var(--brand-300); box-shadow:var(--ring); background:#fff; color:var(--gray-900)}
+  input.val:disabled{color:var(--gray-400); cursor:not-allowed}
+  input.val:disabled:hover{border-color:transparent; background:none}
+  /* toggle switch (on/off boolean controls) */
+  .switch{all:unset; box-sizing:border-box; display:flex; align-items:center; justify-content:space-between;
+    gap:var(--s3); width:100%; cursor:pointer; padding:8px 12px; background:#fff;
+    border:1px solid var(--gray-200); border-radius:var(--radius-md);
+    transition:border-color .12s ease, background .12s ease}
+  .switch:hover{border-color:var(--gray-300)}
+  .switch:focus-visible{box-shadow:var(--ring)}
+  .switch .switch-label{font-size:14px; font-weight:500; color:var(--gray-700)}
+  .switch .switch-track{position:relative; flex:none; width:36px; height:20px; border-radius:999px;
+    background:var(--gray-300); transition:background .16s ease}
+  .switch .switch-knob{position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:999px;
+    background:#fff; box-shadow:var(--shadow-sm); transition:transform .16s ease}
+  .switch[aria-checked=true]{border-color:var(--brand-300)}
+  .switch[aria-checked=true] .switch-track{background:var(--brand-500)}
+  .switch[aria-checked=true] .switch-knob{transform:translateX(16px)}
+  .switch:disabled{opacity:.55; cursor:not-allowed}
 
   /* slider */
   input[type=range]{
@@ -116,7 +174,50 @@
   .slider{margin-bottom:0}
   .slider .row{margin-bottom:0}
 
+  /* locked slider group */
+  input[type=range]:disabled{cursor:not-allowed}
+  input[type=range]:disabled::-webkit-slider-thumb{border-color:var(--gray-300); background:var(--gray-100); cursor:not-allowed}
+  input[type=range]:disabled::-moz-range-thumb{border-color:var(--gray-300); background:var(--gray-100); cursor:not-allowed}
+  .group.locked input[type=range]{opacity:.6}
+  .group.locked label.lbl, .group.locked .val{color:var(--gray-400)}
+
+  /* lock toggle in section header */
+  .lockBtn{
+    margin-left:auto; flex:none; display:inline-flex; align-items:center; justify-content:center;
+    width:26px; height:26px; padding:0; border:1px solid var(--gray-200);
+    background:var(--gray-50); color:var(--gray-500); border-radius:var(--radius-sm);
+    cursor:pointer; position:relative; transition:background .12s ease, color .12s ease, border-color .12s ease;
+  }
+  .lockBtn:hover{background:var(--gray-100); color:var(--gray-700)}
+  .group > h2 .lockBtn svg{width:14px; height:14px; color:inherit}
+  .lockBtn .ic-open{display:none}
+  .lockBtn.unlocked{color:var(--brand-600); border-color:var(--brand-200); background:var(--brand-25)}
+  .lockBtn.unlocked .ic-closed{display:none}
+  .lockBtn.unlocked .ic-open{display:block}
+  .lockBtn[data-tip]::after{
+    content:attr(data-tip); position:absolute; top:calc(100% + 8px); right:0;
+    width:224px; padding:8px 10px; text-align:left; white-space:normal;
+    background:var(--gray-900); color:#fff; font-size:12px; font-weight:400; line-height:1.4;
+    border-radius:var(--radius-md); box-shadow:var(--shadow-lg);
+    opacity:0; visibility:hidden; transform:translateY(-2px);
+    transition:opacity .12s ease, transform .12s ease, visibility .12s ease;
+    pointer-events:none; z-index:30;
+  }
+  .lockBtn:hover::after, .lockBtn:focus-visible::after{opacity:1; visibility:visible; transform:translateY(0)}
+
   /* toggle chips (button group) */
+  /* field type visual picker (Canva-style thumbnails) */
+  .fieldpick{display:grid; grid-template-columns:repeat(2,1fr); gap:var(--s2)}
+  .fieldpick button{all:unset; box-sizing:border-box; cursor:pointer; overflow:hidden;
+    border:1px solid var(--gray-200); border-radius:var(--radius-md); background:#fff;
+    transition:border-color .12s ease, box-shadow .12s ease}
+  .fieldpick button:hover{border-color:var(--gray-300)}
+  .fieldpick button:focus-visible{box-shadow:var(--ring)}
+  .fieldpick button[aria-pressed=true]{border-color:var(--brand-500); box-shadow:inset 0 0 0 1px var(--brand-500)}
+  .fieldpick .thumb{display:block; width:100%; height:34px; background:#203C7F}
+  .fieldpick .cap{display:block; padding:4px 6px; font-size:11px; font-weight:600;
+    color:var(--gray-700); text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .fieldpick button[aria-pressed=true] .cap{color:var(--brand-700)}
   .seg{display:grid; grid-auto-flow:column; gap:var(--s2)}
   .seg.wrap{grid-auto-flow:row; grid-template-columns:repeat(2,1fr)}
   .seg.wrap3{grid-auto-flow:row; grid-template-columns:repeat(3,1fr)}
@@ -161,6 +262,12 @@
   .sizeRow{display:grid; grid-template-columns:1fr auto 1fr; align-items:end; gap:var(--s2); margin-bottom:var(--s3)}
   .sizeRow .x{color:var(--gray-400); font-size:13px; padding-bottom:9px}
   .field{display:grid; gap:4px}
+  .fmtsel{all:unset; box-sizing:border-box; display:block; width:100%; cursor:pointer;
+    padding:9px 34px 9px 12px; border:1px solid var(--gray-300); border-radius:var(--radius-md);
+    box-shadow:var(--shadow-xs); font-size:14px; font-weight:500; color:var(--gray-700); background:#fff;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%23667085' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4.5 6 7.5 9 4.5'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 12px center}
+  .fmtsel:focus-visible{border-color:var(--brand-300); box-shadow:var(--ring)}
   .field label{font-size:12px; font-weight:500; color:var(--gray-600)}
   input[type=number]{
     all:unset; box-sizing:border-box; width:100%; padding:9px 12px; background:#fff;
@@ -186,6 +293,41 @@
   .prow .del{all:unset; cursor:pointer; color:var(--gray-400); font-size:16px; line-height:1; padding:4px 6px; border-radius:var(--radius-sm)}
   .prow .del:hover{color:var(--gray-700); background:var(--gray-100)}
   .prow .del:disabled{opacity:.25; cursor:not-allowed}
+  /* fixed brand-palette swatches */
+  .swatches{display:grid; gap:var(--s2)}
+  .swatch{box-sizing:border-box; display:flex; align-items:center; gap:var(--s2);
+    padding:8px 10px; border:1px solid var(--gray-200); border-radius:var(--radius-md);
+    background:#fff; transition:border-color .12s ease, background .12s ease, box-shadow .12s ease}
+  .swatch:hover{border-color:var(--gray-300)}
+  .swatch.on{border-color:var(--brand-500); background:var(--brand-25)}
+  .sw-main{all:unset; box-sizing:border-box; display:flex; align-items:center; gap:var(--s3);
+    flex:1 1 auto; min-width:0; cursor:pointer; border-radius:var(--radius-sm)}
+  .sw-main:focus-visible{box-shadow:var(--ring)}
+  .swatch .dot{width:22px; height:22px; flex:none; border-radius:999px; border:1px solid rgba(16,24,40,.12)}
+  .swatch .sw-meta{display:flex; flex-direction:column; line-height:1.2; min-width:0}
+  .swatch .sw-name{font-size:13px; font-weight:600; color:var(--gray-800)}
+  .swatch .sw-hex{font-family:ui-monospace,"SF Mono",Menlo,monospace; font-size:11px; color:var(--gray-500); text-transform:uppercase}
+  /* ground radio — always exactly one selected across active swatches */
+  .sw-ground{all:unset; box-sizing:border-box; display:inline-flex; align-items:center; gap:6px; flex:none;
+    cursor:pointer; font-size:11px; font-weight:600; letter-spacing:.02em; text-transform:uppercase;
+    color:var(--gray-400); padding:3px 8px 3px 6px; border-radius:999px;
+    transition:color .12s ease, background .12s ease}
+  .sw-ground:hover{color:var(--gray-700); background:var(--gray-50)}
+  .sw-ground:focus-visible{box-shadow:var(--ring)}
+  .sw-ground .radio{width:13px; height:13px; box-sizing:border-box; flex:none; border-radius:999px;
+    border:1.5px solid var(--gray-300); transition:border-color .12s ease, background .12s ease, box-shadow .12s ease}
+  .sw-ground[aria-checked="true"]{color:var(--brand-700); background:var(--brand-100)}
+  .sw-ground[aria-checked="true"] .radio{border-color:var(--brand-500); background:var(--brand-500); box-shadow:inset 0 0 0 2px #fff}
+  /* AA contrast badge (mark vs ground) */
+  .aa{display:inline-flex; align-items:center; gap:5px; margin-left:8px; padding:1px 7px; border-radius:999px;
+    font-size:10px; font-weight:700; letter-spacing:.02em; font-variant-numeric:tabular-nums}
+  .aa .aa-dot{width:6px; height:6px; border-radius:999px; flex:none}
+  .aa.pass{color:#067647; background:#ECFDF3} .aa.pass .aa-dot{background:#17B26A}
+  .aa.warn{color:#B54708; background:#FFFAEB} .aa.warn .aa-dot{background:#F79009}
+  .aa.fail{color:#B42318; background:#FEF3F2} .aa.fail .aa-dot{background:#F04438}
+  .palroles .slider{margin-top:var(--s2)}
+  .palroles label.lbl{display:flex; align-items:center; gap:8px}
+  .palroles .dot.sm{width:12px; height:12px; flex:none; border-radius:999px; display:inline-block; border:1px solid rgba(16,24,40,.12)}
   /* ---- text overlay (uses container-query units so preview == export) ---- */
   .frame{container-type:size}
   .txt{position:absolute; inset:0; display:flex; pointer-events:none;
@@ -202,8 +344,8 @@
           padding:var(--m); box-sizing:border-box}
   .gridov.on{display:block}
   .gridov .ginner{display:flex; height:100%; gap:var(--g);
-          outline:1px solid rgba(91,131,228,.55); outline-offset:0}
-  .gridov .ginner i{flex:1; background:rgba(91,131,228,.16)}
+          outline:1px solid rgba(240,68,56,.9); outline-offset:0}
+  .gridov .ginner i{flex:1; background:rgba(240,68,56,.30); outline:1px solid rgba(240,68,56,.85)}
   .logo{position:absolute; inset:0; pointer-events:none; padding:var(--m);
         box-sizing:border-box; display:none}
   .logo.on{display:flex}
@@ -260,7 +402,9 @@
     font-size:12px; font-weight:600; color:var(--gray-700); text-align:center;
   }
   select.sz:focus-visible{border-color:var(--brand-300); box-shadow:var(--ring)}
-  .note{font-size:14px; color:var(--gray-600); line-height:1.5; margin:0}
+  .note{font-size:12px; color:var(--gray-500); line-height:1.45; margin:0; letter-spacing:.002em}
+  .note b{font-weight:600; color:var(--gray-600)}
+  .note code{font-size:11px; padding:0 4px}
   code{
     font-family:ui-monospace,"SF Mono",Menlo,monospace; font-size:12px;
     background:var(--gray-50); border:1px solid var(--gray-200);
@@ -282,13 +426,6 @@
 <div class="app">
   <!-- ========== STAGE ========== -->
   <main class="stage">
-    <header class="bar">
-      <div class="mark"><div class="hex"></div>
-        <div class="title">Field Generator <span>Newton brand patterns and motion</span></div>
-      </div>
-      <div class="chips" id="presets"></div>
-    </header>
-
     <div class="canvas-wrap">
       <div class="frame" id="frame">
         <canvas id="gl"></canvas>
@@ -301,6 +438,15 @@
             <h1 class="t-head" id="tHead"></h1>
             <p class="t-body" id="tBody"></p>
           </div>
+        </div>
+        <div class="stagebar">
+          <button class="tbtn" id="pause" type="button" aria-pressed="false" title="Pause / play (Space)" aria-label="Pause or play the animation">
+            <svg class="ic-pause" viewBox="0 0 16 16" fill="currentColor"><rect x="4" y="3" width="3" height="10" rx="1"/><rect x="9" y="3" width="3" height="10" rx="1"/></svg>
+            <svg class="ic-play" viewBox="0 0 16 16" fill="currentColor"><path d="M5 3.5v9l7-4.5-7-4.5Z"/></svg>
+          </button>
+          <button class="tbtn" id="reseed" type="button" title="New seed (R)" aria-label="Reseed the pattern">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 8a5 5 0 1 1-1.5-3.5"/><path d="M13 3v2.5h-2.5"/></svg>
+          </button>
         </div>
       </div>
     </div>
@@ -315,49 +461,34 @@
 
   <!-- ========== RAIL ========== -->
   <aside class="rail">
+    <!-- ===== CANVAS ===== -->
     <section class="group">
-      <h2>Setups</h2>
-      <div class="saverow">
-        <input type="text" id="setupName" placeholder="Name this setup">
-        <button class="btn solid" id="setupSave">Save</button>
+      <h2>Canvas</h2>
+      <label class="lbl" for="format" style="display:block; margin-bottom:var(--s2)">Format</label>
+      <select class="fmtsel" id="format"></select>
+      <div style="height:var(--s3)"></div>
+      <div class="sizeRow">
+        <div class="field"><label for="cw">Width</label><input id="cw" type="number" min="16" max="8192" step="1" value="1920"></div>
+        <span class="x">×</span>
+        <div class="field"><label for="ch">Height</label><input id="ch" type="number" min="16" max="8192" step="1" value="640"></div>
       </div>
-      <div id="setupList" class="setups"></div>
-      <div class="grid2" style="margin-top:var(--s3)">
-        <button class="btn" id="setupExport">Export .json</button>
-        <button class="btn" id="setupImport">Import .json</button>
-      </div>
-      <input type="file" id="setupFile" accept="application/json">
-      <p class="note" style="margin-top:var(--s3)">Saved in this browser. Export to share a setup with the team or move it between machines.</p>
+      <button class="switch" id="maskToggle" role="switch" aria-checked="false">
+        <span class="switch-label">Fade mask</span>
+        <span class="switch-track"><span class="switch-knob"></span></span>
+      </button>
+      <p class="note" style="margin-top:var(--s3)">Fades the pattern behind the copy for legibility. Direction follows the text alignment automatically.</p>
+      <div style="height:var(--s3)"></div>
+      <div class="slider"><div class="row"><label class="lbl" for="maskSolid">Solid stop</label><span class="val" id="maskSolid_v"></span></div><input id="maskSolid" type="range" min="0" max="80" step="1" value="30"></div>
+      <div class="slider"><div class="row"><label class="lbl" for="maskFade">Fade end</label><span class="val" id="maskFade_v"></span></div><input id="maskFade" type="range" min="10" max="100" step="1" value="70"></div>
     </section>
 
-    <section class="group">
-      <h2>Source</h2>
-      <label class="drop" id="drop" for="file">
-        <b id="dropLabel">Drop an image</b>
-        <small>Luminance drives the pattern · PNG or JPG</small>
-      </label>
-      <input type="file" id="file" accept="image/*">
-      <div class="grid2">
-        <button class="btn" id="invert" aria-pressed="false">Invert</button>
-        <button class="btn" id="clearImg">Clear image</button>
-      </div>
-    </section>
+    <!-- ===== BACKGROUND ===== -->
+    <div class="railgroup">Background</div>
 
     <section class="group">
       <h2>Field</h2>
       <p class="note" id="fieldNote" style="margin:0 0 var(--s3); display:none">Image active — it drives the pattern. Clear it to use a procedural field.</p>
-      <div class="seg wrap" id="field">
-        <button data-v="6" aria-pressed="true">Market</button>
-        <button data-v="7" aria-pressed="false">Volatility</button>
-        <button data-v="8" aria-pressed="false">Order book</button>
-        <button data-v="9" aria-pressed="false">Lanes</button>
-        <button data-v="0" aria-pressed="false">Ribbon</button>
-        <button data-v="1" aria-pressed="false">Interference</button>
-        <button data-v="2" aria-pressed="false">Flow</button>
-        <button data-v="3" aria-pressed="false">Signal</button>
-        <button data-v="4" aria-pressed="false">Gate</button>
-        <button data-v="5" aria-pressed="false">Ledger</button>
-      </div>
+      <div class="fieldpick" id="field"></div>
       <div style="height:var(--s4)"></div>
       <div class="slider"><div class="row"><label class="lbl" for="freq">Frequency</label><span class="val" id="freq_v"></span></div><input id="freq" type="range" min="1" max="24" step="0.1" value="7"></div>
       <div class="slider"><div class="row"><label class="lbl" for="amp">Amplitude</label><span class="val" id="amp_v"></span></div><input id="amp" type="range" min="0" max="2" step="0.01" value="1"></div>
@@ -365,87 +496,53 @@
       <div class="slider"><div class="row"><label class="lbl" for="phase">Phase</label><span class="val" id="phase_v"></span></div><input id="phase" type="range" min="0" max="6.28" step="0.01" value="0"></div>
     </section>
 
-    <section class="group">
-      <h2>Marks</h2>
-      <div class="slider"><div class="row"><label class="lbl" for="cols">Density</label><span class="val" id="cols_v"></span></div><input id="cols" type="range" min="20" max="220" step="1" value="120"></div>
-      <div class="slider"><div class="row"><label class="lbl" for="rowScale">Cell aspect</label><span class="val" id="rowScale_v"></span></div><input id="rowScale" type="range" min="0.4" max="4" step="0.05" value="1.6"></div>
-      <div class="slider"><div class="row"><label class="lbl" for="len">Mark length</label><span class="val" id="len_v"></span></div><input id="len" type="range" min="0.1" max="1" step="0.01" value="0.62"></div>
-      <div class="slider"><div class="row"><label class="lbl" for="weight">Mark weight</label><span class="val" id="weight_v"></span></div><input id="weight" type="range" min="0.05" max="0.6" step="0.01" value="0.3"></div>
-      <div class="slider"><div class="row"><label class="lbl" for="quant">Row snap</label><span class="val" id="quant_v"></span></div><input id="quant" type="range" min="0" max="16" step="1" value="0"></div>
+    <section class="group" id="colorsGroup">
+      <h2>Colors</h2>
+      <p class="note" style="margin:0 0 var(--s3)">Marketing palette only. Tap a color to add it, then pick its <b>Ground</b> dot to use it as the background — everything else becomes marks. AA badges rate each mark's contrast against the ground.</p>
+      <div class="swatches" id="brandSwatches"></div>
+      <div class="palroles" id="palRoles"></div>
+    </section>
+
+    <section class="group collapsed" id="marksGroup">
+      <h2>Marks<button class="lockBtn" id="marksLock" type="button" aria-pressed="true" aria-label="Marks are locked to the designer default. Click to unlock." data-tip="Default setup pattern by the designer. Ask before you change any of these values."><svg class="ic-closed" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3.2" y="7" width="9.6" height="6.5" rx="1.4"/><path d="M5.2 7V5.2a2.8 2.8 0 0 1 5.6 0V7"/></svg><svg class="ic-open" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3.2" y="7" width="9.6" height="6.5" rx="1.4"/><path d="M5.2 7V5.2a2.8 2.8 0 0 1 5.4-.9"/></svg></button></h2>
+      <div class="slider"><div class="row"><label class="lbl" for="cols">Density</label><span class="val" id="cols_v"></span></div><input id="cols" type="range" min="20" max="220" step="1" value="72"></div>
+      <div class="slider"><div class="row"><label class="lbl" for="rowScale">Cell aspect</label><span class="val" id="rowScale_v"></span></div><input id="rowScale" type="range" min="0.4" max="4" step="0.05" value="3.25"></div>
+      <div class="slider"><div class="row"><label class="lbl" for="len">Mark length</label><span class="val" id="len_v"></span></div><input id="len" type="range" min="0.1" max="1" step="0.01" value="0.83"></div>
+      <div class="slider"><div class="row"><label class="lbl" for="weight">Mark weight</label><span class="val" id="weight_v"></span></div><input id="weight" type="range" min="0.05" max="0.6" step="0.01" value="0.37"></div>
+      <div class="slider"><div class="row"><label class="lbl" for="quant">Row snap</label><span class="val" id="quant_v"></span></div><input id="quant" type="range" min="0" max="16" step="1" value="9"></div>
       <div class="slider"><div class="row"><label class="lbl" for="jitter">Jitter</label><span class="val" id="jitter_v"></span></div><input id="jitter" type="range" min="0" max="0.6" step="0.01" value="0.18"></div>
     </section>
 
-    <section class="group">
+    <section class="group collapsed">
       <h2>Response</h2>
       <div class="slider"><div class="row"><label class="lbl" for="contrast">Contrast</label><span class="val" id="contrast_v"></span></div><input id="contrast" type="range" min="0.5" max="6" step="0.05" value="1.9"></div>
       <div class="slider"><div class="row"><label class="lbl" for="bias">Threshold</label><span class="val" id="bias_v"></span></div><input id="bias" type="range" min="-0.3" max="0.9" step="0.01" value="0.18"></div>
       <div class="slider"><div class="row"><label class="lbl" for="grain">Grain</label><span class="val" id="grain_v"></span></div><input id="grain" type="range" min="0" max="0.08" step="0.002" value="0.012"></div>
     </section>
 
-    <section class="group">
-      <h2>Colors</h2>
-      <div class="palette" id="paletteList"></div>
-      <button class="btn" id="addColor" style="margin-top:var(--s3)">Add color</button>
-      <p class="note" style="margin:var(--s3) 0 0">First swatch is the ground; the rest are marks, assigned per cell. Minimum three.</p>
+    <section class="group collapsed">
+      <h2>Source</h2>
+      <label class="drop" id="drop" for="file">
+        <b id="dropLabel">Drop an image</b>
+        <small>Luminance drives the pattern · PNG or JPG</small>
+      </label>
+      <input type="file" id="file" accept="image/*">
+      <button class="switch" id="invert" role="switch" aria-checked="false" style="margin-bottom:var(--s2)">
+        <span class="switch-label">Invert luminance</span>
+        <span class="switch-track"><span class="switch-knob"></span></span>
+      </button>
+      <button class="btn" id="clearImg">Clear image</button>
     </section>
 
-    <section class="group">
-      <h2>Grid</h2>
-      <div class="seg" id="gCols_seg">
-        <button data-v="6" aria-pressed="false">6 col</button>
-        <button data-v="8" aria-pressed="false">8 col</button>
-        <button data-v="12" aria-pressed="true">12 col</button>
-      </div>
-      <div style="height:var(--s4)"></div>
-      <div class="slider"><div class="row"><label class="lbl" for="gMargin">Margin</label><span class="val" id="gMargin_v"></span></div><input id="gMargin" type="range" min="0" max="16" step="0.5" value="6"></div>
-      <div class="slider"><div class="row"><label class="lbl" for="gGutter">Gutter</label><span class="val" id="gGutter_v"></span></div><input id="gGutter" type="range" min="0" max="6" step="0.1" value="1.5"></div>
-      <button class="btn" id="gShow" aria-pressed="false">Show grid</button>
-      <p class="note" style="margin-top:var(--s3)">Margin and gutter are a share of the canvas <b>short side</b>, so whitespace holds its optical weight as the ratio changes. Text and logo both inset to this margin. Guide is preview-only.</p>
-    </section>
-
-    <section class="group">
-      <h2>Logo</h2>
-      <div class="seg" id="lType">
-        <button data-v="none" aria-pressed="false">None</button>
-        <button data-v="mark" aria-pressed="false">Mark</button>
-        <button data-v="lockup" aria-pressed="true">Lockup</button>
-      </div>
-      <div class="row" style="margin:var(--s4) 0 var(--s2)"><label class="lbl">Placement</label></div>
-      <div class="seg wrap3" id="lPos">
-        <button data-v="tl" aria-pressed="true">↖</button>
-        <button data-v="tc" aria-pressed="false">↑</button>
-        <button data-v="tr" aria-pressed="false">↗</button>
-        <button data-v="bl" aria-pressed="false">↙</button>
-        <button data-v="bc" aria-pressed="false">↓</button>
-        <button data-v="br" aria-pressed="false">↘</button>
-      </div>
-      <div class="row" style="margin:var(--s4) 0 var(--s2)"><label class="lbl">Size</label></div>
-      <div class="seg" id="lSize">
-        <button data-v="S" aria-pressed="false">S</button>
-        <button data-v="M" aria-pressed="true">M</button>
-        <button data-v="L" aria-pressed="false">L</button>
-        <button data-v="XL" aria-pressed="false">XL</button>
-      </div>
-      <div class="row" style="margin:var(--s4) 0 var(--s2)"><label class="lbl">Color</label></div>
-      <div class="seg" id="lColor">
-        <button data-v="black" aria-pressed="false">Black</button>
-        <button data-v="white" aria-pressed="true">White</button>
-        <button data-v="blue" aria-pressed="false">Blue</button>
-      </div>
-      <div class="row" style="margin:var(--s4) 0 var(--s2)"><label class="lbl">Backing</label></div>
-      <div class="seg" id="lPlate">
-        <button data-v="none" aria-pressed="true">None</button>
-        <button data-v="scrim" aria-pressed="false">Scrim</button>
-        <button data-v="solid" aria-pressed="false">Plate</button>
-      </div>
-      <div style="height:var(--s3)"></div>
-      <div class="chan"><span>Backing</span><select id="lPlateColor"></select><i id="lPlateDot"></i></div>
-      <p class="note">Backing clears the pattern behind the mark. <b>Scrim</b> fades out softly; <b>Plate</b> is a hard field.</p>
-    </section>
+    <!-- ===== CONTENT ===== -->
+    <div class="railgroup">Content</div>
 
     <section class="group">
       <h2>Text</h2>
-      <button class="btn" id="textOn" aria-pressed="true" style="margin-bottom:var(--s4)">Text on</button>
+      <button class="switch" id="textOn" role="switch" aria-checked="true" style="margin-bottom:var(--s4)">
+        <span class="switch-label">Show text</span>
+        <span class="switch-track"><span class="switch-knob"></span></span>
+      </button>
 
       <div class="tfield">
         <div class="thead"><label for="tiEyebrow">Eyebrow</label>
@@ -482,60 +579,79 @@
       <p class="note">Sizes follow a 1.333 scale set as a share of canvas width. Measure is counted in grid columns and text insets to the grid margin. Wrap words in <code>*asterisks*</code> for italic.</p>
     </section>
 
-    <section class="group">
-      <h2>Cursor</h2>
-      <div class="seg wrap" id="mouseMode">
-        <button data-v="0" aria-pressed="true">Off</button>
-        <button data-v="2" aria-pressed="false">Spotlight</button>
-        <button data-v="1" aria-pressed="false">Ripple</button>
-        <button data-v="3" aria-pressed="false">Push</button>
+    <section class="group collapsed">
+      <h2>Logo</h2>
+      <div class="seg" id="lType">
+        <button data-v="none" aria-pressed="false">None</button>
+        <button data-v="mark" aria-pressed="false">Mark</button>
+        <button data-v="lockup" aria-pressed="true">Lockup</button>
+      </div>
+      <div class="row" style="margin:var(--s4) 0 var(--s2)"><label class="lbl">Placement</label></div>
+      <div class="seg wrap3" id="lPos">
+        <button data-v="tl" aria-pressed="true">↖</button>
+        <button data-v="tc" aria-pressed="false">↑</button>
+        <button data-v="tr" aria-pressed="false">↗</button>
+        <button data-v="bl" aria-pressed="false">↙</button>
+        <button data-v="bc" aria-pressed="false">↓</button>
+        <button data-v="br" aria-pressed="false">↘</button>
+      </div>
+      <div class="row" style="margin:var(--s4) 0 var(--s2)"><label class="lbl">Size</label></div>
+      <div class="seg" id="lSize">
+        <button data-v="L" aria-pressed="true">L</button>
+        <button data-v="XL" aria-pressed="false">XL</button>
+      </div>
+      <div class="row" style="margin:var(--s4) 0 var(--s2)"><label class="lbl">Color</label></div>
+      <div class="seg" id="lColor">
+        <button data-v="black" aria-pressed="false">Black</button>
+        <button data-v="white" aria-pressed="true">White</button>
+        <button data-v="blue" aria-pressed="false">Blue</button>
+      </div>
+      <div class="row" style="margin:var(--s4) 0 var(--s2)"><label class="lbl">Backing</label></div>
+      <div class="seg" id="lPlate">
+        <button data-v="none" aria-pressed="true">None</button>
+        <button data-v="scrim" aria-pressed="false">Scrim</button>
+        <button data-v="solid" aria-pressed="false">Plate</button>
+      </div>
+      <p class="note" style="margin-top:var(--s3)">Backing clears the pattern behind the mark using the background color. <b>Scrim</b> fades out softly; <b>Plate</b> is a hard field.</p>
+    </section>
+
+    <!-- ===== GUIDES ===== -->
+    <section class="group collapsed">
+      <h2>Guides</h2>
+      <div class="seg" id="gCols_seg">
+        <button data-v="6" aria-pressed="false">6 col</button>
+        <button data-v="8" aria-pressed="false">8 col</button>
+        <button data-v="12" aria-pressed="true">12 col</button>
       </div>
       <div style="height:var(--s4)"></div>
-      <div class="slider"><div class="row"><label class="lbl" for="mouseRadius">Reach</label><span class="val" id="mouseRadius_v"></span></div><input id="mouseRadius" type="range" min="0.04" max="0.5" step="0.01" value="0.16"></div>
-      <div class="slider"><div class="row"><label class="lbl" for="mouseStrength">Strength</label><span class="val" id="mouseStrength_v"></span></div><input id="mouseStrength" type="range" min="0" max="2" step="0.01" value="1"></div>
-      <p class="note" style="margin-top:var(--s2)">Move the pointer over the canvas. Interaction is baked into the HTML and React exports.</p>
+      <div class="slider"><div class="row"><label class="lbl" for="gMargin">Margin</label><span class="val" id="gMargin_v"></span></div><input id="gMargin" type="range" min="0" max="16" step="0.5" value="6"></div>
+      <div class="slider"><div class="row"><label class="lbl" for="gGutter">Gutter</label><span class="val" id="gGutter_v"></span></div><input id="gGutter" type="range" min="0" max="6" step="0.1" value="1.5"></div>
+      <button class="switch" id="gShow" role="switch" aria-checked="false">
+        <span class="switch-label">Show grid overlay</span>
+        <span class="switch-track"><span class="switch-knob"></span></span>
+      </button>
+      <p class="note" style="margin-top:var(--s3)">Margin and gutter are a share of the canvas <b>short side</b>, so whitespace holds its optical weight as the ratio changes. Text and logo both inset to this margin. Guide is preview-only.</p>
     </section>
 
     <section class="group">
-      <h2>Composition</h2>
-      <div class="sizeRow">
-        <div class="field"><label for="cw">Width</label><input id="cw" type="number" min="16" max="8192" step="1" value="1920"></div>
-        <span class="x">×</span>
-        <div class="field"><label for="ch">Height</label><input id="ch" type="number" min="16" max="8192" step="1" value="640"></div>
+      <h2>Export</h2>
+      <div class="row" style="margin-bottom:var(--s2)"><label class="lbl">Format</label></div>
+      <div class="seg" id="expFmt">
+        <button data-v="png" aria-pressed="true">PNG</button>
+        <button data-v="svg" aria-pressed="false">SVG</button>
+        <button data-v="mp4" aria-pressed="false">MP4</button>
       </div>
-      <div class="seg wrap" id="ratio">
-        <button data-v="3" aria-pressed="true">3 : 1</button>
-        <button data-v="1.7778" aria-pressed="false">16 : 9</button>
-        <button data-v="1" aria-pressed="false">1 : 1</button>
-        <button data-v="0.8" aria-pressed="false">4 : 5</button>
-      </div>
-      <div style="height:var(--s3)"></div>
-      <div class="seg wrap" id="maskDir">
-        <button data-v="none" aria-pressed="true">No mask</button>
-        <button data-v="to right" aria-pressed="false">Mask left</button>
-        <button data-v="to left" aria-pressed="false">Mask right</button>
-        <button data-v="to top" aria-pressed="false">Mask bottom</button>
+      <div id="vidOpts" hidden>
+        <div style="height:var(--s3)"></div>
+        <div class="field" style="margin-bottom:var(--s2)"><label for="vidDur">Duration (seconds)</label><input id="vidDur" type="number" min="0.5" max="60" step="0.5" value="5"></div>
+        <button class="switch" id="vidLoop" role="switch" aria-checked="true">
+          <span class="switch-label">Seamless loop</span>
+          <span class="switch-track"><span class="switch-knob"></span></span>
+        </button>
       </div>
       <div style="height:var(--s3)"></div>
-      <div class="slider"><div class="row"><label class="lbl" for="maskSolid">Solid stop</label><span class="val" id="maskSolid_v"></span></div><input id="maskSolid" type="range" min="0" max="80" step="1" value="30"></div>
-      <div class="slider"><div class="row"><label class="lbl" for="maskFade">Fade end</label><span class="val" id="maskFade_v"></span></div><input id="maskFade" type="range" min="10" max="100" step="1" value="70"></div>
-    </section>
-
-    <section class="group">
-      <h2>Output</h2>
-      <div class="grid2" style="margin-bottom:var(--s2)">
-        <button class="btn" id="reseed">Reseed</button>
-        <button class="btn" id="pause">Pause</button>
-      </div>
-      <div class="grid2" style="margin-bottom:var(--s2)">
-        <button class="btn" id="copyGlsl">Copy GLSL</button>
-        <button class="btn" id="copyReact">Copy React</button>
-      </div>
-      <div class="grid2" style="margin-bottom:var(--s2)">
-        <button class="btn" id="png">Export PNG</button>
-        <button class="btn solid" id="html">Export HTML</button>
-      </div>
-      <p class="note"><b>PNG</b> bakes the current frame at <span id="pngSize">1920×640</span>. <b>HTML</b> is a self-contained animated file — drop it on any site or iframe it; cursor interaction and the 0.4s fade-in ship inside. <code>Copy React</code> emits a <code>&lt;FieldCanvas /&gt;</code> for the Next.js app.</p>
+      <button class="btn solid" id="exportBtn">Export PNG</button>
+      <p class="note" style="margin-top:var(--s3)"><b>PNG / SVG</b> bake the current frame at <span id="pngSize">1920×640</span>; SVG embeds that frame as a raster image. <b>MP4</b> records the live animation for the set duration — with <b>Loop</b> on it ping-pongs so the clip repeats seamlessly. Browsers that can't encode MP4 will save a WEBM instead.</p>
     </section>
   </aside>
 </div>
@@ -575,15 +691,16 @@ const LOGO_SIZES = {S:2.6, M:3.6, L:4.8, XL:6.4};
 const S = {
   field:6, useImg:0, invert:0,
   freq:7, amp:1, speed:.28, phase:0,
-  cols:120, rowScale:1.6, len:.62, weight:.30, jitter:.18, quant:0,
+  cols:72, rowScale:3.25, len:.83, weight:.37, jitter:.18, quant:9,
   contrast:1.9, bias:.18, grain:.012,
-  colors:['#5B83E4', '#E7E4DB', '#A2BDE9'],   // [0] ground, rest marks — min 3, user can add
-  maskDir:'none', maskSolid:30, maskFade:70,
+  colors:['#3D6FE8', '#E7E4DB', '#BACCF8'],   // [0] ground, rest marks — brand palette only
+  weights:[0, 50, 50],                        // per-mark appearance density %, aligned to colors indices
+  maskDir:'none', maskOn:false, maskSolid:30, maskFade:70,
   canvasW:1920, canvasH:640,
   mouseMode:0, mouseRadius:0.16, mouseStrength:1,
   mx:0.5, my:0.5, mtx:0.5, mty:0.5, mon:0, mtOn:0,
   grid:{ show:false, cols:12, margin:6, gutter:1.5 },
-  logo:{ type:'lockup', pos:'tl', size:'M', color:'white', plate:'none', plateIdx:0 },
+  logo:{ type:'lockup', pos:'tl', size:'L', color:'white', plate:'none', plateIdx:0 },   // plateIdx 0 = ground/bg; backing always uses bg
   text:{
     on:true,
     eyebrow:'Authorization layer',
@@ -630,6 +747,7 @@ uniform vec2  uRes;
 uniform float uTime;
 uniform vec3  uColors[8];    // [0] = ground, [1..] = mark colours
 uniform int   uColorCount;
+uniform float uColorWeight[8]; // [1..] = per-mark appearance density (relative weight)
 uniform float uCols, uRowScale, uLen, uWeight, uJitter;
 uniform float uFreq, uAmp, uContrast, uBias, uGrain, uSeed, uQuant;
 uniform int   uField;
@@ -787,8 +905,25 @@ void main(){
   a *= step(0.02, amt);
 
   int marks = max(uColorCount - 1, 1);
-  int mi = 1 + int(hash21(id + uSeed*3.0) * float(marks));
-  if(mi >= uColorCount) mi = uColorCount - 1;
+  float rnd = hash21(id + uSeed*3.0);
+  // weighted pick over mark colours by per-colour density; falls back to uniform
+  float total = 0.0;
+  for(int j=1;j<8;j++){ if(j < uColorCount) total += max(uColorWeight[j], 0.0); }
+  int mi;
+  if(total <= 1e-5){
+    mi = 1 + int(rnd * float(marks));
+    if(mi >= uColorCount) mi = uColorCount - 1;
+  } else {
+    float h = rnd * total;
+    float acc = 0.0;
+    mi = uColorCount - 1;
+    for(int j=1;j<8;j++){
+      if(j < uColorCount){
+        acc += max(uColorWeight[j], 0.0);
+        if(h < acc){ mi = j; break; }
+      }
+    }
+  }
   vec3 markCol = uColors[1];
   for(int j=1;j<8;j++){ if(j==mi) markCol = uColors[j]; }
   vec3 col = mix(uColors[0], markCol, a);
@@ -805,7 +940,7 @@ gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS));
 gl.linkProgram(prog); gl.useProgram(prog);
 const U = n => gl.getUniformLocation(prog, n);
 const u = {
-  res:U('uRes'), time:U('uTime'), colors:U('uColors'), colorCount:U('uColorCount'),
+  res:U('uRes'), time:U('uTime'), colors:U('uColors'), colorCount:U('uColorCount'), colorWeight:U('uColorWeight'),
   cols:U('uCols'), rowScale:U('uRowScale'), len:U('uLen'), weight:U('uWeight'), jitter:U('uJitter'),
   freq:U('uFreq'), amp:U('uAmp'), contrast:U('uContrast'), bias:U('uBias'),
   grain:U('uGrain'), seed:U('uSeed'), field:U('uField'),
@@ -815,6 +950,8 @@ const u = {
 };
 const hex2rgb = h => [parseInt(h.slice(1,3),16)/255, parseInt(h.slice(3,5),16)/255, parseInt(h.slice(5,7),16)/255];
 const palToFloats = () => { const a=[]; S.colors.slice(0,8).forEach(c=>a.push(...hex2rgb(c))); while(a.length<24) a.push(0); return new Float32Array(a); };
+// per-mark density weights aligned to S.colors indices ([0] ground = unused)
+const weightsToFloats = () => { const a = new Float32Array(8); for(let k=1;k<S.colors.length && k<8;k++){ a[k] = (S.weights && S.weights[k]!=null) ? S.weights[k] : 50; } return a; };
 
 // image texture (1x1 white until an image is dropped)
 const tex = gl.createTexture();
@@ -829,7 +966,7 @@ gl.useProgram(prog); gl.uniform1i(u.img, 0);
 let imgAspect = 1;
 
 /* ===================== render ===================== */
-let clock = 0, last = performance.now(), started = false;
+let clock = 0, last = performance.now(), started = false, exporting = false;
 
 function draw(w,h){
   gl.viewport(0,0,w,h);
@@ -837,6 +974,7 @@ function draw(w,h){
   gl.uniform1f(u.time, clock + S.phase);
   gl.uniform3fv(u.colors, palToFloats());
   gl.uniform1i(u.colorCount, Math.max(2, Math.min(8, S.colors.length)));
+  gl.uniform1fv(u.colorWeight, weightsToFloats());
   gl.uniform1f(u.cols, S.cols);
   gl.uniform1f(u.rowScale, S.rowScale);
   gl.uniform1f(u.len, S.len);
@@ -873,6 +1011,9 @@ function sizeCanvas(){
 }
 
 function loop(now){
+  // during an export we drive the clock and canvas size ourselves — skip the
+  // live pass so sizeCanvas()/draw() don't fight the recorder.
+  if(exporting){ last = now; requestAnimationFrame(loop); return; }
   const dt = Math.min((now-last)/1000, .05); last = now;
   if(!S.paused) clock += dt * S.speed * 2.0;
   // eased cursor follow — the Processing-style lag that makes interaction feel physical
@@ -900,21 +1041,57 @@ requestAnimationFrame(loop);
 /* ===================== ui ===================== */
 const $ = id => document.getElementById(id);
 const toast = msg => { const t=$('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1400); };
+const setSwitch = (id, on) => { const el=$(id); if(el) el.setAttribute('aria-checked', String(!!on)); };
 
-const SLIDERS = ['freq','amp','speed','phase','cols','rowScale','len','weight','quant','jitter','contrast','bias','grain','maskSolid','maskFade','mouseRadius','mouseStrength'];
+const SLIDERS = ['freq','amp','speed','phase','cols','rowScale','len','weight','quant','jitter','contrast','bias','grain','maskSolid','maskFade'];
+
+// write a value into either a display span or an editable input
+function putDisp(id, str){ const el=$(id); if(!el) return; if(el.tagName==='INPUT') el.value=str; else el.textContent=str; }
+// format a number using its slider's step (int if step>=1, else matching decimals)
+function fmtNum(v, range){
+  const st = range ? parseFloat(range.step) : 1;
+  if(!st || st>=1) return String(Math.round(v));
+  const d = (String(st).split('.')[1]||'').length;
+  return (+v).toFixed(d);
+}
+// turn a value display span into a click-to-type numeric input
+function makeEditable(vid){
+  const el = $(vid); if(!el || el.tagName==='INPUT') return;
+  const inp = document.createElement('input');
+  inp.className = el.className; inp.id = vid;
+  inp.type='text'; inp.setAttribute('inputmode','decimal'); inp.spellcheck=false;
+  el.replaceWith(inp);
+}
+// two-way bind an editable value field to its paired range slider
+function bindEditable(vid){
+  makeEditable(vid);
+  const field = $(vid), range = $(vid.replace(/_v$/,''));
+  if(!field || !range) return;
+  const commit = ()=>{
+    let v = parseFloat(field.value);
+    if(isNaN(v)){ field.value = range.value; return; }
+    v = Math.min(parseFloat(range.max), Math.max(parseFloat(range.min), v));
+    range.value = v;
+    range.dispatchEvent(new Event('input', { bubbles:true }));  // reuse the slider's own wiring
+  };
+  field.addEventListener('change', commit);
+  field.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); commit(); field.blur(); } });
+  field.addEventListener('focus', ()=> field.select());
+}
+
 function syncSliders(){
   SLIDERS.forEach(k=>{
     const el=$(k); if(!el) return;
     el.value = S[k];
-    $(k+'_v').textContent =
-      (k==='cols') ? S[k] :
-      (k==='quant') ? (S[k] ? S[k]+' rows' : 'Off') :
-      (k==='maskSolid'||k==='maskFade') ? S[k]+'%' : (+S[k]).toFixed(2);
+    const vf = $(k+'_v');
+    if(vf && document.activeElement===vf) return;   // don't clobber while typing
+    putDisp(k+'_v', fmtNum(S[k], el));
   });
 }
 SLIDERS.forEach(k=>{
   $(k).addEventListener('input', e=>{ S[k] = parseFloat(e.target.value); syncSliders(); applyMask(); meta(); });
 });
+[...SLIDERS.map(k=>k+'_v'), 'gMargin_v', 'gGutter_v', 'tGap_v'].forEach(bindEditable);
 
 function seg(id, key, cast=v=>v){
   const el = $(id);
@@ -925,44 +1102,263 @@ function seg(id, key, cast=v=>v){
     applyMask(); meta();
   });
 }
+// field type picker — thumbnails are real shader micro-renders (baked at startup),
+// with these CSS gradients as a graceful fallback until/if baking runs.
+const FIELDS = [
+  { v:6, name:'Market',       pat:'repeating-linear-gradient(90deg,#BACCF8 0 2px,transparent 2px 7px), #203C7F' },
+  { v:7, name:'Volatility',   pat:'repeating-linear-gradient(90deg,#BACCF8 0 1px,transparent 1px 4px), #203C7F' },
+  { v:8, name:'Order book',   pat:'repeating-linear-gradient(0deg,#BACCF8 0 2px,transparent 2px 7px), #203C7F' },
+  { v:9, name:'Lanes',        pat:'repeating-linear-gradient(60deg,#BACCF8 0 4px,transparent 4px 12px), #203C7F' },
+  { v:0, name:'Ribbon',       pat:'linear-gradient(180deg,#BACCF8,#3D6FE8 55%,#203C7F)' },
+  { v:1, name:'Interference', pat:'repeating-linear-gradient(45deg,#BACCF8 0 1px,transparent 1px 6px), repeating-linear-gradient(-45deg,#BACCF8 0 1px,transparent 1px 6px), #203C7F' },
+  { v:2, name:'Flow',         pat:'conic-gradient(from 45deg at 50% 50%,#203C7F,#3D6FE8,#BACCF8,#3D6FE8,#203C7F)' },
+  { v:3, name:'Signal',       pat:'repeating-linear-gradient(90deg,#BACCF8 0 6px,transparent 6px 12px), #203C7F' },
+  { v:4, name:'Gate',         pat:'repeating-linear-gradient(0deg,#BACCF8 0 1px,transparent 1px 9px), repeating-linear-gradient(90deg,#BACCF8 0 1px,transparent 1px 9px), #203C7F' },
+  { v:5, name:'Ledger',       pat:'repeating-linear-gradient(0deg,#BACCF8 0 1px,transparent 1px 6px), #203C7F' }
+];
+(function renderFieldPicker(){
+  const box = $('field'); if(!box) return;
+  box.innerHTML = FIELDS.map(f =>
+    '<button type="button" data-v="'+f.v+'" aria-pressed="'+(S.field===f.v)+'" title="'+f.name+'">'
+    + '<span class="thumb" style="background:'+f.pat+'"></span>'
+    + '<span class="cap">'+f.name+'</span></button>'
+  ).join('');
+})();
 seg('field','field', v=>parseInt(v));
-seg('ratio','ratio', v=>parseFloat(v));
-seg('maskDir','maskDir');
-seg('mouseMode','mouseMode', v=>parseInt(v));
 
-// custom canvas dimensions — either input overrides the aspect quick-sets
+// per-field tuning so each motif reads clearly at thumbnail scale
+const FIELD_THUMB = {
+  6:{freq:8,  amp:1.0, cols:52, rowScale:2.6},   // Market — price line
+  7:{freq:6,  amp:1.1, cols:52, rowScale:2.6},   // Volatility — envelope
+  8:{freq:9,  amp:0.95,cols:56, rowScale:2.4},   // Order book — mid ladder
+  9:{freq:7,  amp:1.1, cols:60, rowScale:1.5},   // Lanes — streams
+  0:{freq:6,  amp:1.0, cols:50, rowScale:2.4},   // Ribbon — bands
+  1:{freq:8,  amp:1.0, cols:54, rowScale:2.0},   // Interference — weave
+  2:{freq:6,  amp:1.0, cols:52, rowScale:2.2},   // Flow — fbm
+  3:{freq:5,  amp:1.0, cols:56, rowScale:2.0},   // Signal — rings
+  4:{freq:5,  amp:1.0, cols:30, rowScale:1.6},   // Gate — modules
+  5:{freq:6,  amp:1.0, cols:48, rowScale:2.6}    // Ledger — columns
+};
+// render each field once through the real shader, snapshot to a data URL, and
+// paint it onto the picker thumbnails. Runs synchronously before the first rAF
+// so the WebGL drawing buffer is still readable via toDataURL().
+function bakeFieldThumbs(){
+  const box = $('field'); if(!box || !gl || !prog) return;
+  const TW = 300, TH = 96, GROUND = '#203C7F', MARK = '#BACCF8';
+  const swW = canvas.width, swH = canvas.height;
+  try {
+    gl.useProgram(prog);
+    canvas.width = TW; canvas.height = TH;
+    gl.uniform2f(u.res, TW, TH);
+    gl.uniform1f(u.time, 1.6);
+    gl.uniform3fv(u.colors, new Float32Array([...hex2rgb(GROUND), ...hex2rgb(MARK), ...new Array(18).fill(0)]));
+    gl.uniform1i(u.colorCount, 2);
+    gl.uniform1fv(u.colorWeight, new Float32Array([0,100,0,0,0,0,0,0]));
+    gl.uniform1f(u.len, 0.82); gl.uniform1f(u.weight, 0.42); gl.uniform1f(u.jitter, 0.12);
+    gl.uniform1f(u.contrast, 2.2); gl.uniform1f(u.bias, 0.20); gl.uniform1f(u.grain, 0);
+    gl.uniform1f(u.quant, 0); gl.uniform1f(u.seed, 3.0);
+    gl.uniform1i(u.useImg, 0); gl.uniform1i(u.invert, 0);
+    gl.uniform1f(u.mouseOn, 0); gl.uniform1i(u.mouseMode, 0);
+    FIELDS.forEach(f=>{
+      const P = FIELD_THUMB[f.v] || {};
+      gl.uniform1f(u.freq, P.freq ?? 7); gl.uniform1f(u.amp, P.amp ?? 1);
+      gl.uniform1f(u.cols, P.cols ?? 50); gl.uniform1f(u.rowScale, P.rowScale ?? 2.4);
+      gl.uniform1i(u.field, f.v);
+      gl.viewport(0,0,TW,TH);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      const url = canvas.toDataURL('image/png');
+      const thumb = box.querySelector('button[data-v="'+f.v+'"] .thumb');
+      if(thumb){ thumb.style.backgroundImage = 'url('+url+')'; thumb.style.backgroundSize = 'cover'; thumb.style.backgroundPosition = 'center'; }
+    });
+  } catch(e){ /* keep CSS-gradient fallbacks */ }
+  finally { canvas.width = swW; canvas.height = swH; }
+}
+
+// canvas format presets — pinned dropdown; W×H below fine-tunes and flips this to "Custom"
+const FORMATS = [
+  { name:'Banner · 3:1',      w:1920, h:640  },
+  { name:'Widescreen · 16:9', w:1920, h:1080 },
+  { name:'Square · 1:1',      w:1080, h:1080 },
+  { name:'Portrait · 4:5',    w:1080, h:1350 },
+  { name:'Story · 9:16',      w:1080, h:1920 }
+];
+(function initFormat(){
+  const sel = $('format'); if(!sel) return;
+  sel.innerHTML = FORMATS.map((f,i)=>'<option value="'+i+'">'+f.name+' · '+f.w+'×'+f.h+'</option>').join('')
+    + '<option value="custom">Custom size</option>';
+  sel.addEventListener('change', ()=>{
+    const f = FORMATS[+sel.value];
+    if(!f) return;                     // "Custom" keeps the current W×H
+    S.canvasW = f.w; S.canvasH = f.h;
+    applyMask(); meta();
+  });
+})();
+function syncFormatSelect(){
+  const sel = $('format'); if(!sel) return;
+  const i = FORMATS.findIndex(f => f.w === Math.round(S.canvasW) && f.h === Math.round(S.canvasH));
+  sel.value = i >= 0 ? String(i) : 'custom';
+}
+// custom canvas dimensions — either input fine-tunes and flips the format to "Custom"
 function onDim(){
   const w = Math.max(16, Math.min(8192, parseInt($('cw').value)||S.canvasW));
   const h = Math.max(16, Math.min(8192, parseInt($('ch').value)||S.canvasH));
   S.canvasW = w; S.canvasH = h;
-  [...$('ratio').querySelectorAll('button')].forEach(x=>x.setAttribute('aria-pressed', String(Math.abs(parseFloat(x.dataset.v)-S.ratio)<.005)));
   applyMask(); meta();
 }
 $('cw').addEventListener('input', onDim);
 $('ch').addEventListener('input', onDim);
 
 /* ---- color list: [0] ground, rest marks · min 3, add more ---- */
-const MAX_COLORS = 8;
-function renderPalette(){
-  const box = $('paletteList'); box.innerHTML = '';
-  S.colors.forEach((hex, i)=>{
-    const row = document.createElement('div'); row.className = 'prow';
-    const tag = document.createElement('span'); tag.className='tag'; tag.textContent = i===0 ? 'Ground' : 'Mark '+i;
-    const pick = document.createElement('input'); pick.type='color'; pick.value = hex;
-    const val = document.createElement('span'); val.className='hexval'; val.textContent = hex;
-    const del = document.createElement('button'); del.className='del'; del.textContent='✕';
-    del.title='Remove'; del.disabled = S.colors.length <= 3;
-    pick.addEventListener('input', ()=>{ S.colors[i]=pick.value; val.textContent=pick.value; applyMask(); if(window.syncTextColor){syncTextColor(); renderText(); renderLogo();} });
-    del.addEventListener('click', ()=>{ if(S.colors.length>3){ S.colors.splice(i,1); renderPalette(); applyMask(); if(window.syncTextColor){syncTextColor(); renderText(); renderLogo();} } });
-    row.append(tag, pick, val, del);
-    box.appendChild(row);
-  });
-  $('addColor').disabled = S.colors.length >= MAX_COLORS;
+/* ---- fixed Marketing brand palette · users choose from these only, no custom hex ---- */
+const BRAND = [
+  { name:'Navy',       hex:'#203C7F', use:'Deep grounds, high-contrast marks' },
+  { name:'Cornflower', hex:'#3D6FE8', use:'Primary marketing blue' },
+  { name:'Periwinkle', hex:'#BACCF8', use:'Light accents, gradients' },
+  { name:'Sky',        hex:'#EEF3FF', use:'Subtle light grounds' },
+  { name:'Ink',        hex:'#0E0E0F', use:'Near-black grounds and marks' },
+  { name:'Slate',      hex:'#71727A', use:'Muted neutral marks' },
+  { name:'Mist',       hex:'#E4E4E7', use:'Soft neutral grounds' },
+  { name:'Paper',      hex:'#FBFCFE', use:'Bright white grounds' },
+  { name:'Gold',       hex:'#CBC28F', use:'Editorial headline blocks, card grounds' },
+  { name:'Cream',      hex:'#E7E4DB', use:'Large backgrounds, paper-tone grounds' }
+];
+const MAX_COLORS = 8;   // shader supports up to 8 active colors
+const MIN_COLORS = 2;   // ground + at least one mark
+const brandIndexOf = hex => BRAND.findIndex(b => b.hex.toLowerCase() === String(hex).toLowerCase());
+const inColors = hex => S.colors.findIndex(c => c.toLowerCase() === hex.toLowerCase());
+
+/* ---- WCAG contrast helpers (ground vs mark) ---- */
+const _lin = c => c <= 0.03928 ? c/12.92 : Math.pow((c+0.055)/1.055, 2.4);
+const relLum = hex => { const [r,g,b] = hex2rgb(hex); return 0.2126*_lin(r) + 0.7152*_lin(g) + 0.0722*_lin(b); };
+const contrastRatio = (a,b) => { const L1=relLum(a), L2=relLum(b), hi=Math.max(L1,L2), lo=Math.min(L1,L2); return (hi+0.05)/(lo+0.05); };
+function aaBadge(ratio){
+  const r = ratio.toFixed(1) + ':1';
+  let cls='fail', tip='Below 3:1 — marks may not read against the ground.';
+  if(ratio >= 4.5){ cls='pass'; tip='Passes WCAG AA (4.5:1) — reads at any size.'; }
+  else if(ratio >= 3){ cls='warn'; tip='Passes AA for large / graphical elements (3:1) only.'; }
+  return '<span class="aa '+cls+'" title="'+tip+'"><span class="aa-dot"></span>'+r+'</span>';
 }
-$('addColor').onclick = ()=>{
-  if(S.colors.length >= MAX_COLORS) return;
-  S.colors.push('#A2BDE9'); renderPalette(); syncTextColor();
-};
+
+function refreshColorConsumers(){
+  applyMask();
+  if(window.syncTextColor){ syncTextColor(); renderText(); renderLogo(); }
+  meta();
+}
+
+function toggleBrand(bi){
+  const hex = BRAND[bi].hex;
+  const at = inColors(hex);
+  if(at === -1){
+    if(S.colors.length >= MAX_COLORS){ toast('Up to '+MAX_COLORS+' colors'); return; }
+    S.colors.push(hex); S.weights.push(50);
+  } else {
+    if(S.colors.length <= MIN_COLORS) return;   // always keep a ground + one mark
+    // if the ground is being removed, the next color becomes ground automatically
+    S.colors.splice(at, 1); S.weights.splice(at, 1);
+  }
+  renderPalette();
+  refreshColorConsumers();
+}
+
+// promote any active color to ground (index 0); always exactly one ground
+function setGround(hex){
+  const at = inColors(hex);
+  if(at <= 0) return;                       // not found, or already ground
+  if(!S.weights[0]) S.weights[0] = 50;      // demoted ground rejoins marks visibly
+  const [c] = S.colors.splice(at, 1);
+  const [w] = S.weights.splice(at, 1);
+  S.colors.unshift(c); S.weights.unshift(w);
+  S.weights[0] = 0;                         // ground density is unused
+  renderPalette();
+  refreshColorConsumers();
+}
+
+function renderSwatches(){
+  const box = $('brandSwatches'); box.innerHTML = '';
+  BRAND.forEach((b, bi)=>{
+    const active = inColors(b.hex) !== -1;
+    const isGround = active && S.colors[0].toLowerCase() === b.hex.toLowerCase();
+    const sw = document.createElement('div');
+    sw.className = 'swatch' + (active ? ' on' : '');
+
+    const main = document.createElement('button');
+    main.type = 'button'; main.className = 'sw-main';
+    main.setAttribute('aria-pressed', String(active));
+    main.title = active ? 'Remove from palette' : b.use;
+    main.innerHTML =
+      '<span class="dot" style="background:'+b.hex+'"></span>'
+      + '<span class="sw-meta"><span class="sw-name">'+b.name+'</span>'
+      + '<span class="sw-hex">'+b.hex+'</span></span>';
+    main.addEventListener('click', ()=>toggleBrand(bi));
+    sw.appendChild(main);
+
+    if(active){
+      const g = document.createElement('button');
+      g.type = 'button'; g.className = 'sw-ground';
+      g.setAttribute('role', 'radio'); g.setAttribute('aria-checked', String(isGround));
+      g.title = isGround ? 'This is the ground (background) color' : 'Use as ground (background) color';
+      g.innerHTML = '<span class="radio"></span>Ground';
+      g.addEventListener('click', e=>{ e.stopPropagation(); setGround(b.hex); });
+      sw.appendChild(g);
+    }
+    box.appendChild(sw);
+  });
+}
+
+function renderRoles(){
+  const box = $('palRoles'); box.innerHTML = '';
+  if(S.colors.length <= 1) return;
+  const head = document.createElement('p');
+  head.className = 'note'; head.style.margin = 'var(--s4) 0 var(--s2)';
+  head.textContent = 'Mark density — how often each color appears';
+  box.appendChild(head);
+  for(let k=1;k<S.colors.length;k++){
+    const bi = brandIndexOf(S.colors[k]);
+    const name = bi >= 0 ? BRAND[bi].name : S.colors[k];
+    if(S.weights[k] == null) S.weights[k] = 50;
+    const wrap = document.createElement('div'); wrap.className = 'slider';
+    const row = document.createElement('div'); row.className = 'row';
+    const lbl = document.createElement('label'); lbl.className = 'lbl';
+    lbl.innerHTML = '<span class="dot sm" style="background:'+S.colors[k]+'"></span>'+name
+      + aaBadge(contrastRatio(S.colors[k], S.colors[0]));
+    const val = document.createElement('input'); val.className = 'val';
+    val.type = 'text'; val.setAttribute('inputmode','decimal'); val.spellcheck = false;
+    val.value = Math.round(S.weights[k]);
+    row.append(lbl, val);
+    const inp = document.createElement('input');
+    inp.type = 'range'; inp.min = '0'; inp.max = '100'; inp.step = '1'; inp.value = S.weights[k];
+    const idx = k;
+    inp.addEventListener('input', ()=>{ S.weights[idx] = parseFloat(inp.value); if(document.activeElement!==val) val.value = Math.round(S.weights[idx]); });
+    val.addEventListener('change', ()=>{
+      let v = parseFloat(val.value);
+      if(isNaN(v)){ val.value = Math.round(S.weights[idx]); return; }
+      v = Math.min(100, Math.max(0, v)); S.weights[idx] = v; inp.value = v; val.value = Math.round(v);
+    });
+    val.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); val.blur(); } });
+    val.addEventListener('focus', ()=> val.select());
+    wrap.append(row, inp);
+    box.appendChild(wrap);
+  }
+}
+
+// keep the old name so existing init/restore calls keep working
+function renderPalette(){
+  // enforce brand-only palette (also cleans any custom colors from older saved setups)
+  const cleaned = [], cw = [];
+  S.colors.forEach((c, i)=>{
+    if(brandIndexOf(c) >= 0 && !cleaned.some(x => x.toLowerCase() === c.toLowerCase())){
+      cleaned.push(BRAND[brandIndexOf(c)].hex);
+      cw.push(S.weights && S.weights[i] != null ? S.weights[i] : 50);
+    }
+  });
+  if(cleaned.length < MIN_COLORS){
+    S.colors = ['#3D6FE8', '#E7E4DB', '#BACCF8']; S.weights = [0, 50, 50];
+  } else {
+    S.colors = cleaned; S.weights = cw; S.weights[0] = 0;
+  }
+  renderSwatches();
+  renderRoles();
+}
 
 /* ---- image source ---- */
 function loadImage(file){
@@ -994,7 +1390,7 @@ $('clearImg').onclick = ()=>{
   $('dropLabel').textContent = 'Drop an image'; $('file').value = '';
   $('fieldNote').style.display = 'none';
 };
-$('invert').onclick = e=>{ S.invert = S.invert ? 0 : 1; e.target.setAttribute('aria-pressed', String(!!S.invert)); };
+$('invert').onclick = ()=>{ S.invert = S.invert ? 0 : 1; setSwitch('invert', !!S.invert); };
 
 function applyMask(){
   const m = $('mask');
@@ -1009,11 +1405,12 @@ function meta(){
   if(wEl && document.activeElement!==wEl) wEl.value = Math.round(S.canvasW);
   if(hEl && document.activeElement!==hEl) hEl.value = Math.round(S.canvasH);
   const ps=$('pngSize'); if(ps) ps.textContent = `${Math.round(S.canvasW)}×${Math.round(S.canvasH)}`;
+  syncFormatSelect();
 }
 
 // presets
 const pbox = $('presets');
-Object.keys(PRESETS).forEach(name=>{
+if(pbox) Object.keys(PRESETS).forEach(name=>{
   const b = document.createElement('button');
   b.className='btn chip'; b.textContent=name;
   b.onclick = ()=>{
@@ -1030,13 +1427,13 @@ Object.keys(PRESETS).forEach(name=>{
 });
 
 $('reseed').onclick = ()=>{ S.seed = Math.random()*100; meta(); };
-$('pause').onclick  = e=>{ S.paused=!S.paused; e.target.textContent = S.paused?'Play':'Pause'; };
+$('pause').onclick  = ()=>{ S.paused=!S.paused; $('pause').setAttribute('aria-pressed', String(S.paused)); };
 
 document.addEventListener('keydown', e=>{
   if(e.target.tagName==='INPUT') return;
   if(e.code==='Space'){ e.preventDefault(); $('pause').click(); }
   if(e.key.toLowerCase()==='r') $('reseed').click();
-  if(e.key.toLowerCase()==='e') $('png').click();
+  if(e.key.toLowerCase()==='e') $('exportBtn').click();
 });
 
 
@@ -1155,7 +1552,7 @@ function gseg(id, obj, key, cast=v=>v, after){
 gseg('gCols_seg', S.grid, 'cols', v=>parseInt(v), ()=>{
   $('tMeasure').max = S.grid.cols;
   if(S.text.spanCols > S.grid.cols){ S.text.spanCols = S.grid.cols; $('tMeasure').value = S.grid.cols; }
-  $('tMeasure_v').textContent = S.text.spanCols + ' of ' + S.grid.cols;
+  putDisp('tMeasure_v', S.text.spanCols + ' of ' + S.grid.cols);
   renderGrid(); renderText();
 });
 gseg('lType',  S.logo, 'type',  v=>v, renderLogo);
@@ -1163,30 +1560,25 @@ gseg('lPos',   S.logo, 'pos',   v=>v, renderLogo);
 gseg('lSize',  S.logo, 'size',  v=>v, renderLogo);
 gseg('lColor', S.logo, 'color', v=>v, renderLogo);
 gseg('lPlate', S.logo, 'plate', v=>v, renderLogo);
-$('lPlateColor').addEventListener('change', e=>{
-  S.logo.plateIdx = parseInt(e.target.value);
-  $('lPlateDot').style.background = palAt(S.logo.plateIdx);
-  renderLogo();
-});
+// backing color is always the background (ground) color — plateIdx stays 0, no selector
 
 ['gMargin','gGutter'].forEach(id=>{
   const key = id==='gMargin' ? 'margin' : 'gutter';
   $(id).addEventListener('input', e=>{
     S.grid[key] = parseFloat(e.target.value);
-    $(id+'_v').textContent = S.grid[key] + '%';
+    putDisp(id+'_v', S.grid[key]);
     renderGrid(); renderText(); renderLogo();
   });
 });
-$('gShow').onclick = e=>{
+$('gShow').onclick = ()=>{
   S.grid.show = !S.grid.show;
-  e.target.setAttribute('aria-pressed', String(S.grid.show));
-  e.target.textContent = S.grid.show ? 'Hide grid' : 'Show grid';
+  setSwitch('gShow', S.grid.show);
   renderGrid();
 };
 
 function initGridLogo(){
-  $('gMargin').value = S.grid.margin; $('gMargin_v').textContent = S.grid.margin + '%';
-  $('gGutter').value = S.grid.gutter; $('gGutter_v').textContent = S.grid.gutter + '%';
+  $('gMargin').value = S.grid.margin; putDisp('gMargin_v', S.grid.margin);
+  $('gGutter').value = S.grid.gutter; putDisp('gGutter_v', S.grid.gutter);
   $('tMeasure').max = S.grid.cols;
   renderGrid(); renderLogo();
 }
@@ -1359,24 +1751,37 @@ function tseg(id, key){
     [...el.querySelectorAll('button')].forEach(x=>x.setAttribute('aria-pressed', String(x===b)));
     S.text[key] = b.dataset.v;
     renderText();
+    if(key === 'align') syncMaskToAlign();
   });
 }
 tseg('tAlign','align');
 tseg('tVAlign','vAlign');
 
+// mask is a single on/off toggle; when on, its direction follows the text
+// alignment: left→mask left, right→mask right, center→mask bottom
+const ALIGN_MASK = { left:'to right', center:'to top', right:'to left' };
+function syncMaskToAlign(){
+  S.maskDir = S.maskOn ? (ALIGN_MASK[S.text.align] || 'to right') : 'none';
+  applyMask(); meta();
+}
+(function(){
+  const btn = $('maskToggle');
+  if(!btn) return;
+  setSwitch('maskToggle', S.maskOn);
+  btn.addEventListener('click', ()=>{ S.maskOn = !S.maskOn; setSwitch('maskToggle', S.maskOn); syncMaskToAlign(); });
+})();
+
 ['tMeasure','tGap'].forEach(id=>{
   const key = {tMeasure:'spanCols', tGap:'gap'}[id];
   $(id).addEventListener('input', e=>{
     S.text[key] = parseFloat(e.target.value);
-    $(id+'_v').textContent = key==='spanCols'
-      ? S.text.spanCols + ' of ' + S.grid.cols : S.text[key];
+    putDisp(id+'_v', key==='spanCols' ? S.text.spanCols + ' of ' + S.grid.cols : S.text[key]);
     renderText();
   });
 });
-$('textOn').onclick = e=>{
+$('textOn').onclick = ()=>{
   S.text.on = !S.text.on;
-  e.target.setAttribute('aria-pressed', String(S.text.on));
-  e.target.textContent = S.text.on ? 'Text on' : 'Text off';
+  setSwitch('textOn', S.text.on);
   renderText();
 };
 
@@ -1384,8 +1789,7 @@ $('textOn').onclick = e=>{
 const COLOR_SELECTS = [
   ['cEyebrow', o=>S.text, 'cEyebrow'],
   ['cHead',    o=>S.text, 'cHead'],
-  ['cBody',    o=>S.text, 'cBody'],
-  ['lPlateColor', o=>S.logo, 'plateIdx']
+  ['cBody',    o=>S.text, 'cBody']
 ];
 function syncTextColor(){
   COLOR_SELECTS.forEach(([id, get, key])=>{
@@ -1395,17 +1799,16 @@ function syncTextColor(){
     S.colors.forEach((hex, i)=>{
       const o = document.createElement('option');
       o.value = i;
-      o.textContent = (id === 'lPlateColor')
-        ? (i === 0 ? 'Ground' : 'Mark ' + i) + ' · ' + hex.toUpperCase()
-        : (i === 0 ? 'Ground' : 'Mark ' + i);
+      o.textContent = (i === 0 ? 'Ground' : 'Mark ' + i);
       sel.appendChild(o);
     });
     if(obj[key] > S.colors.length - 1) obj[key] = S.colors.length - 1;
     sel.value = obj[key];
   });
-  const d = $('lPlateDot'); if(d) d.style.background = palAt(S.logo.plateIdx);
+  // backing always tracks the background (ground) color
+  S.logo.plateIdx = 0;
 }
-COLOR_SELECTS.slice(0,3).forEach(([id, get, key])=>{
+COLOR_SELECTS.forEach(([id, get, key])=>{
   $(id).addEventListener('change', e=>{ S.text[key] = parseInt(e.target.value); renderText(); });
 });
 
@@ -1417,8 +1820,8 @@ function initText(){
   $('szHead').value    = S.text.headStep;
   $('szBody').value    = S.text.bodyStep;
   $('tMeasure').value  = S.text.spanCols;
-  $('tMeasure_v').textContent = S.text.spanCols + ' of ' + S.grid.cols;
-  $('tGap').value      = S.text.gap;     $('tGap_v').textContent     = S.text.gap;
+  putDisp('tMeasure_v', S.text.spanCols + ' of ' + S.grid.cols);
+  $('tGap').value      = S.text.gap;     putDisp('tGap_v', S.text.gap);
   syncTextColor();
   renderText();
 }
@@ -1431,12 +1834,11 @@ const ICONS = {
   'Marks':       '<path d="M4 3v10M8 5v8M12 2v11"/><rect x="2.8" y="5.5" width="2.4" height="5" rx=".6"/><rect x="6.8" y="7" width="2.4" height="4" rx=".6"/><rect x="10.8" y="4.5" width="2.4" height="6" rx=".6"/>',
   'Response':    '<path d="M3 4.5h10M3 8h10M3 11.5h10"/><circle cx="6" cy="4.5" r="1.6"/><circle cx="10" cy="8" r="1.6"/><circle cx="5" cy="11.5" r="1.6"/>',
   'Colors':      '<circle cx="6" cy="6" r="3.2"/><circle cx="10" cy="6" r="3.2"/><circle cx="8" cy="10" r="3.2"/>',
-  'Grid':        '<rect x="2.5" y="2.5" width="11" height="11" rx="1"/><path d="M6.2 2.5v11M9.8 2.5v11"/>',
+  'Guides':      '<rect x="2.5" y="2.5" width="11" height="11" rx="1"/><path d="M6.2 2.5v11M9.8 2.5v11"/>',
   'Logo':        '<path d="M8 2.2 13 5v6l-5 2.8L3 11V5l5-2.8Z"/><rect x="6.4" y="6.4" width="3.2" height="3.2" rx=".6"/>',
   'Text':        '<path d="M3 4V3h10v1M8 3v10M6 13h4"/>',
-  'Cursor':      '<path d="M4 3l8 4.5-3.4 1.1L7.5 12 4 3Z"/>',
-  'Composition': '<path d="M5.5 2v9.5H15M2 4.5h9.5V14"/>',
-  'Output':      '<path d="M8 2.5v8M5 7.5l3 3 3-3"/><path d="M2.5 12.5v1h11v-1"/>'
+  'Canvas':      '<path d="M5.5 2v9.5H15M2 4.5h9.5V14"/>',
+  'Export':      '<path d="M8 2.5v8M5 7.5l3 3 3-3"/><path d="M2.5 12.5v1h11v-1"/>'
 };
 (function(){
   document.querySelectorAll('.rail .group > h2').forEach(h=>{
@@ -1446,6 +1848,45 @@ const ICONS = {
       '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" '
       + 'stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>');
   });
+})();
+
+/* ---- accordion: every rail section collapses from its header ---- */
+(function(){
+  document.querySelectorAll('.rail .group > h2').forEach(h=>{
+    const sec = h.parentElement;
+    h.setAttribute('role','button');
+    h.setAttribute('tabindex','0');
+    const sync = ()=> h.setAttribute('aria-expanded', String(!sec.classList.contains('collapsed')));
+    const toggle = ()=>{ sec.classList.toggle('collapsed'); sync(); };
+    sync();
+    h.addEventListener('click', e=>{ if(e.target.closest('.lockBtn')) return; toggle(); });
+    h.addEventListener('keydown', e=>{
+      if(e.key==='Enter' || e.key===' '){ e.preventDefault(); toggle(); }
+    });
+  });
+})();
+
+/* ---- Marks lock: designer default, locked until the user unlocks ---- */
+(function(){
+  const MARK_SLIDERS = ['cols','rowScale','len','weight','quant','jitter'];
+  const btn = $('marksLock');
+  const group = $('marksGroup');
+  if(!btn || !group) return;
+  function setLocked(locked){
+    btn.classList.toggle('unlocked', !locked);
+    btn.setAttribute('aria-pressed', String(locked));
+    btn.setAttribute('aria-label', locked
+      ? 'Marks are locked to the designer default. Click to unlock.'
+      : 'Marks are unlocked. Click to lock back to the designer default.');
+    btn.setAttribute('data-tip', locked
+      ? 'Default setup pattern by the designer. Ask before you change any of these values.'
+      : 'Unlocked — you are editing the designer default. Lock again to protect it.');
+    group.classList.toggle('locked', locked);
+    MARK_SLIDERS.forEach(id=>{ const el=$(id); if(el) el.disabled = locked; const vf=$(id+'_v'); if(vf) vf.disabled = locked; });
+  }
+  let locked = true;
+  setLocked(true);
+  btn.addEventListener('click', ()=>{ locked = !locked; setLocked(locked); });
 })();
 
 /* ===================== setups ===================== */
@@ -1459,8 +1900,8 @@ function snapshot(){
     freq:S.freq, amp:S.amp, speed:S.speed, phase:S.phase,
     cols:S.cols, rowScale:S.rowScale, len:S.len, weight:S.weight, jitter:S.jitter, quant:S.quant,
     contrast:S.contrast, bias:S.bias, grain:S.grain,
-    colors:[...S.colors],
-    maskDir:S.maskDir, maskSolid:S.maskSolid, maskFade:S.maskFade,
+    colors:[...S.colors], weights:[...S.weights],
+    maskDir:S.maskDir, maskOn:S.maskOn, maskSolid:S.maskSolid, maskFade:S.maskFade,
     canvasW:S.canvasW, canvasH:S.canvasH,
     mouseMode:S.mouseMode, mouseRadius:S.mouseRadius, mouseStrength:S.mouseStrength,
     grid:{...S.grid}, logo:{...S.logo}, text:{...S.text}, seed:S.seed
@@ -1499,112 +1940,183 @@ function syncAll(){
   syncSliders(); renderPalette(); applyMask(); meta();
   const press = (id, val)=>{ const el=$(id); if(!el) return;
     [...el.querySelectorAll('button')].forEach(x=>x.setAttribute('aria-pressed', String(x.dataset.v == val))); };
-  press('field', S.field); press('maskDir', S.maskDir); press('mouseMode', S.mouseMode);
+  press('field', S.field); press('mouseMode', S.mouseMode);
+  setSwitch('maskToggle', S.maskOn); setSwitch('gShow', S.grid.show);
   press('gCols_seg', S.grid.cols); press('lType', S.logo.type); press('lPos', S.logo.pos);
   press('lSize', S.logo.size); press('lColor', S.logo.color); press('lPlate', S.logo.plate);
   press('tAlign', S.text.align); press('tVAlign', S.text.vAlign);
-  [...$('ratio').querySelectorAll('button')].forEach(x=>
-    x.setAttribute('aria-pressed', String(Math.abs(parseFloat(x.dataset.v) - S.ratio) < .01)));
-  $('invert').setAttribute('aria-pressed', String(!!S.invert));
-  $('textOn').setAttribute('aria-pressed', String(S.text.on));
-  $('textOn').textContent = S.text.on ? 'Text on' : 'Text off';
-  initGridLogo(); initText(); loadSetups(); renderSetups(); renderLogo(); renderGrid();
+  syncFormatSelect();
+  setSwitch('invert', !!S.invert);
+  setSwitch('textOn', S.text.on);
+  initGridLogo(); initText(); renderLogo(); renderGrid();
 }
-
-function loadSetups(){
-  if(!setupsAvailable) return;
-  try{ SETUPS = JSON.parse(localStorage.getItem(SETUP_KEY) || '{}'); }catch(e){ SETUPS = {}; }
-}
-function persistSetups(){
-  if(!setupsAvailable) return true;
-  try{ localStorage.setItem(SETUP_KEY, JSON.stringify(SETUPS)); return true; }
-  catch(e){ return false; }
-}
-function renderSetups(){
-  const box = $('setupList'); box.innerHTML = '';
-  Object.keys(SETUPS).sort().forEach(name=>{
-    const row = document.createElement('div'); row.className='srow';
-    const b = document.createElement('button'); b.className='load'; b.textContent = name;
-    b.onclick = ()=>{ restore(SETUPS[name]); toast(name + ' loaded'); };
-    const x = document.createElement('button'); x.className='rm'; x.textContent='✕'; x.title='Delete';
-    x.onclick = ()=>{ delete SETUPS[name]; persistSetups(); renderSetups(); };
-    row.append(b, x); box.appendChild(row);
-  });
-}
-$('setupSave').onclick = ()=>{
-  const name = ($('setupName').value || '').trim();
-  if(!name){ $('setupName').focus(); toast('Name it first'); return; }
-  SETUPS[name] = snapshot();
-  let ok = persistSetups();
-  if(!ok){                                   // usually the embedded image blowing the quota
-    const lite = {...SETUPS[name], imgData:null};
-    SETUPS[name] = lite; ok = persistSetups();
-    toast(ok ? 'Saved without image (too large)' : 'Saved for this session only');
-  } else {
-    toast(setupsAvailable ? name + ' saved' : 'Saved for this session only');
-  }
-  $('setupName').value = '';
-  renderSetups();
-};
-$('setupExport').onclick = ()=>{
-  const name = ($('setupName').value || '').trim() || 'newton-setup';
-  const blob = new Blob([JSON.stringify({name, setup:snapshot()}, null, 2)], {type:'application/json'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = name + '.json';
-  a.click(); URL.revokeObjectURL(a.href);
-  toast('Setup exported');
-};
-$('setupImport').onclick = ()=> $('setupFile').click();
-$('setupFile').addEventListener('change', e=>{
-  const f = e.target.files[0]; if(!f) return;
-  const rd = new FileReader();
-  rd.onload = ()=>{
-    try{
-      const j = JSON.parse(rd.result);
-      const data = j.setup || j;
-      const name = j.name || f.name.replace(/\.json$/,'');
-      SETUPS[name] = data; persistSetups(); renderSetups(); restore(data);
-      toast(name + ' imported');
-    }catch(err){ toast('Could not read that file'); }
-  };
-  rd.readAsText(f);
-  e.target.value = '';
-});
 
 /* ===================== export ===================== */
-$('png').onclick = async ()=>{
-  try{ await document.fonts.ready; }catch(e){}
-  const w = Math.round(S.canvasW), h = Math.round(S.canvasH);
+/* ---- export helpers ---- */
+function dl(blob, name){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+}
+function stamp(ext){ return `newton-field-${S.field}-${Math.round(S.seed*100)}.${ext}`; }
+
+// paint the mask gradient (ground color fading out) onto a 2d context
+function paintMask(ctx, w, h){
+  if(S.maskDir==='none') return;
+  const dirs = {'to right':[0,0,w,0], 'to left':[w,0,0,0], 'to top':[0,h,0,0]};
+  const [x0,y0,x1,y1] = dirs[S.maskDir];
+  const grad = ctx.createLinearGradient(x0,y0,x1,y1);
+  grad.addColorStop(0, S.colors[0]);
+  grad.addColorStop(S.maskSolid/100, S.colors[0]);
+  grad.addColorStop(Math.max(S.maskFade,S.maskSolid+1)/100, S.colors[0]+'00');
+  grad.addColorStop(1, S.colors[0]+'00');
+  ctx.fillStyle = grad; ctx.fillRect(0,0,w,h);
+}
+
+// shader frame + mask + text + logo, baked into a fresh 2d canvas at export size
+async function composite(w,h){
   const pw = canvas.width, ph = canvas.height;
   canvas.width = w; canvas.height = h;
   draw(w,h);
-
   const out = document.createElement('canvas');
-  out.width=w; out.height=h;
+  out.width = w; out.height = h;
   const ctx = out.getContext('2d');
   ctx.drawImage(canvas,0,0);
-
-  if(S.maskDir!=='none'){
-    const dirs = {'to right':[0,0,w,0], 'to left':[w,0,0,0], 'to top':[0,h,0,0]};
-    const [x0,y0,x1,y1] = dirs[S.maskDir];
-    const grad = ctx.createLinearGradient(x0,y0,x1,y1);
-    grad.addColorStop(S.maskSolid/100, S.colors[0]);
-    grad.addColorStop(0, S.colors[0]);
-    grad.addColorStop(Math.max(S.maskFade,S.maskSolid+1)/100, S.colors[0]+'00');
-    grad.addColorStop(1, S.colors[0]+'00');
-    ctx.fillStyle = grad; ctx.fillRect(0,0,w,h);
-  }
+  paintMask(ctx, w, h);
   drawText(ctx, w, h);
   await drawLogo(ctx, w, h);
-  out.toBlob(b=>{
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(b);
-    a.download = `newton-field-${S.field}-${Math.round(S.seed*100)}.png`;
-    a.click(); URL.revokeObjectURL(a.href);
-  }, 'image/png');
+  canvas.width = pw; canvas.height = ph;
+  return out;
+}
 
-  canvas.width=pw; canvas.height=ph;
+// mask + text + logo only, on a transparent canvas — the static overlay we
+// stamp on top of every recorded shader frame
+async function buildOverlay(w,h){
+  const ov = document.createElement('canvas');
+  ov.width = w; ov.height = h;
+  const ctx = ov.getContext('2d');
+  paintMask(ctx, w, h);
+  drawText(ctx, w, h);
+  await drawLogo(ctx, w, h);
+  return ov;
+}
+
+async function exportPNG(){
+  try{ await document.fonts.ready; }catch(e){}
+  exporting = true;
+  const w = Math.round(S.canvasW), h = Math.round(S.canvasH);
+  const out = await composite(w,h);
+  exporting = false; last = performance.now();
+  out.toBlob(b=> dl(b, stamp('png')), 'image/png');
   toast('PNG exported');
+}
+
+async function exportSVG(){
+  try{ await document.fonts.ready; }catch(e){}
+  exporting = true;
+  const w = Math.round(S.canvasW), h = Math.round(S.canvasH);
+  const out = await composite(w,h);
+  exporting = false; last = performance.now();
+  const data = out.toDataURL('image/png');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><image width="${w}" height="${h}" href="${data}"/></svg>`;
+  dl(new Blob([svg], {type:'image/svg+xml'}), stamp('svg'));
+  toast('SVG exported');
+}
+
+function pickVideoMime(){
+  const cands = [
+    'video/mp4;codecs=avc1.640028',
+    'video/mp4;codecs=avc1',
+    'video/mp4',
+    'video/webm;codecs=vp9',
+    'video/webm;codecs=vp8',
+    'video/webm'
+  ];
+  if(!window.MediaRecorder) return '';
+  for(const c of cands){ if(MediaRecorder.isTypeSupported(c)) return c; }
+  return '';
+}
+
+async function exportVideo(){
+  const mime = pickVideoMime();
+  if(!mime){ toast('Video export not supported here'); return; }
+  const isMp4 = mime.indexOf('video/mp4') === 0;
+  const durSec = Math.max(0.5, Math.min(60, parseFloat($('vidDur').value) || 5));
+  const loopOn = $('vidLoop').getAttribute('aria-checked') === 'true';
+  const btn = $('exportBtn'), prev = btn.textContent;
+
+  try{ await document.fonts.ready; }catch(e){}
+  const w = Math.round(S.canvasW), h = Math.round(S.canvasH);
+  const overlay = await buildOverlay(w,h);
+
+  const out = document.createElement('canvas');
+  out.width = w; out.height = h;
+  const octx = out.getContext('2d');
+
+  const fps = 30;
+  const stream = out.captureStream(fps);
+  const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 16_000_000 });
+  const chunks = [];
+  rec.ondataavailable = e => { if(e.data && e.data.size) chunks.push(e.data); };
+
+  exporting = true;
+  const pw = canvas.width, ph = canvas.height;
+  canvas.width = w; canvas.height = h;
+  btn.disabled = true; btn.textContent = 'Recording…';
+
+  const startClock = clock;
+  const rate = S.speed * 2.0;              // clock units / sec (matches live loop)
+  const total = durSec * 1000;
+
+  rec.onstop = ()=>{
+    canvas.width = pw; canvas.height = ph;
+    exporting = false; last = performance.now();
+    btn.disabled = false; btn.textContent = prev;
+    dl(new Blob(chunks, {type: mime}), stamp(isMp4 ? 'mp4' : 'webm'));
+    toast(isMp4 ? 'MP4 exported' : 'WEBM exported (MP4 unsupported here)');
+  };
+
+  const t0 = performance.now();
+  rec.start();
+  (function frame(now){
+    const el = Math.min(now - t0, total);
+    const p = el / total;                  // 0..1 through the clip
+    if(loopOn){
+      // ping-pong: 0 → peak → 0, so the last frame equals the first
+      const tri = p < 0.5 ? p*2 : (1-p)*2;
+      clock = startClock + tri * rate * (durSec/2);
+    } else {
+      clock = startClock + p * rate * durSec;
+    }
+    draw(w,h);
+    octx.clearRect(0,0,w,h);
+    octx.drawImage(canvas,0,0);
+    octx.drawImage(overlay,0,0);
+    if(el < total) requestAnimationFrame(frame);
+    else rec.stop();
+  })(t0);
+}
+
+/* ---- export controls ---- */
+let expFmt = 'png';
+$('expFmt').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  [...$('expFmt').querySelectorAll('button')].forEach(x=>x.setAttribute('aria-pressed', String(x===b)));
+  expFmt = b.dataset.v;
+  $('vidOpts').hidden = expFmt !== 'mp4';
+  $('exportBtn').textContent = 'Export ' + expFmt.toUpperCase();
+});
+$('vidLoop').onclick = ()=>{
+  const on = $('vidLoop').getAttribute('aria-checked') !== 'true';
+  setSwitch('vidLoop', on);
+};
+$('exportBtn').onclick = ()=>{
+  if(exporting) return;
+  if(expFmt==='png') exportPNG();
+  else if(expFmt==='svg') exportSVG();
+  else exportVideo();
 };
 
 // clipboard is blocked in sandboxed iframes / non-HTTPS — degrade to execCommand, then to a file download
@@ -1635,7 +2147,7 @@ function copy(txt, msg, filename){
     fallbackExec();
   }
 }
-$('copyGlsl').onclick = ()=> copy(FS, 'GLSL copied', `newton-field-${S.field}.glsl.frag`);
+if($('copyGlsl')) $('copyGlsl').onclick = ()=> copy(FS, 'GLSL copied', `newton-field-${S.field}.glsl.frag`);
 
 
 /* which font faces does the current text actually need? */
@@ -1702,7 +2214,7 @@ function buildStandalone(){
   const faceCss = usedFaces().map(k=>FONT_FACES[k]).join('\n');
 
   const U = {
-    uColors:flat, uColorCount:Math.max(2,Math.min(8,S.colors.length)),
+    uColors:flat, uColorCount:Math.max(2,Math.min(8,S.colors.length)), uColorWeight:Array.from(weightsToFloats()),
     uCols:S.cols, uRowScale:S.rowScale, uLen:S.len, uWeight:S.weight, uJitter:S.jitter, uQuant:S.quant,
     uFreq:S.freq, uAmp:S.amp, uContrast:S.contrast, uBias:S.bias, uGrain:S.grain,
     uSeed:S.seed.toFixed(3), uField:S.field, uUseImg:S.useImg, uInvert:S.invert, uImgAspect:imgAspect.toFixed(4),
@@ -1753,6 +2265,7 @@ function buildStandalone(){
   parts.push('function frame(now){const dt=Math.min((now-last)/1000,.05);last=now;if(!reduce)clock+=dt*SPEED*2;const k=1-Math.pow(0.001,dt);mx+=(mtx-mx)*k;my+=(mty-my)*k;mon+=(mtOn-mon)*k;size();const w=cv.width,h=cv.height;gl.viewport(0,0,w,h);');
   parts.push('gl.uniform2f(loc.uRes,w,h);gl.uniform1f(loc.uTime,(reduce?PHASE:clock+PHASE));');
   parts.push('gl.uniform3fv(loc.uColors,new Float32Array(U.uColors));gl.uniform1i(loc.uColorCount,U.uColorCount);');
+  parts.push('gl.uniform1fv(loc.uColorWeight,new Float32Array(U.uColorWeight));');
   parts.push('gl.uniform1f(loc.uCols,U.uCols);gl.uniform1f(loc.uRowScale,U.uRowScale);gl.uniform1f(loc.uLen,U.uLen);gl.uniform1f(loc.uWeight,U.uWeight);gl.uniform1f(loc.uJitter,U.uJitter);gl.uniform1f(loc.uQuant,U.uQuant);');
   parts.push('gl.uniform1f(loc.uFreq,U.uFreq);gl.uniform1f(loc.uAmp,U.uAmp);gl.uniform1f(loc.uContrast,U.uContrast);gl.uniform1f(loc.uBias,U.uBias);gl.uniform1f(loc.uGrain,U.uGrain);gl.uniform1f(loc.uSeed,U.uSeed);gl.uniform1i(loc.uField,U.uField);');
   parts.push('gl.uniform1i(L("uUseImg"),U.uUseImg);gl.uniform1i(L("uInvert"),U.uInvert);gl.uniform1f(L("uImgAspect"),U.uImgAspect);');
@@ -1763,7 +2276,7 @@ function buildStandalone(){
   return parts.join('\n');
 }
 
-$('html').onclick = ()=>{
+if($('html')) $('html').onclick = ()=>{
   const doc = buildStandalone();
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([doc], {type:'text/html'}));
@@ -1772,7 +2285,7 @@ $('html').onclick = ()=>{
   toast('Standalone HTML exported');
 };
 
-$('copyReact').onclick = ()=>{
+if($('copyReact')) $('copyReact').onclick = ()=>{
   const vec3 = h => { const c=hex2rgb(h); return `new THREE.Vector3(${c[0].toFixed(4)}, ${c[1].toFixed(4)}, ${c[2].toFixed(4)})`; };
   // text layer as JSX — self-host the Suisse faces in your app and expose them
   // as the `Suisse BP Intl` family (next/font/local or a plain @font-face).
@@ -1845,6 +2358,7 @@ export default function FieldCanvas({ className = ''${useImg ? ", src" : ""} }) 
       uTime:     { value: 0 },
       uColors:   { value: ${colorsArr} },
       uColorCount:{ value: ${Math.max(2, Math.min(8, S.colors.length))} },
+      uColorWeight:{ value: [${Array.from(weightsToFloats()).join(', ')}] },
       uCols:     { value: ${S.cols} },
       uRowScale: { value: ${S.rowScale} },
       uLen:      { value: ${S.len} },
@@ -1948,7 +2462,8 @@ ${useImg ? `
 };
 
 /* init */
-syncSliders(); renderPalette(); applyMask(); meta(); initGridLogo(); initText();
+syncSliders(); renderPalette(); applyMask(); meta(); initGridLogo(); initText(); syncMaskToAlign();
+bakeFieldThumbs();
 </script>
 </body>
 </html>
