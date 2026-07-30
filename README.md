@@ -66,12 +66,22 @@ without a visible seam.
 
 Other controls:
 
-- **Content → Text / Logo** — eyebrow, headline, and body copy with per-line color and
-  size, plus logo placement. The **fade mask** behind the copy follows your text
-  alignment automatically.
+- **Content → Text** — eyebrow, headline, and body copy, each with its own color and
+  one of four sizes (S–XL, a 1.61 scale set as a share of canvas width so the
+  proportion survives any export size). Wrap words in `*asterisks*` for italic.
+- **Content → Logo** — mark or full lockup, placed on a 3×3 grid at a single fixed
+  size. Turn on the **Scrim** backing to wash a soft halo of the background color
+  behind the mark so it stays legible over a dense pattern.
+- **Canvas → Fade mask** — on by default. Its direction follows your text alignment:
+  left- or right-aligned copy fades in from that edge, and centered copy gets a
+  symmetric band that clears the middle while the pattern still reads at both sides.
+  **Solid stop** and **Fade end** control how far the clear area extends.
 - **Marks** — the pattern's density, weight, and jitter. This is locked to the
   designer's default; click the lock icon to unlock and edit.
 - **Guides** — a red grid overlay (margin + gutter) to help you align copy.
+
+What you see in the canvas is what you get: the PNG, MP4, HTML, and React outputs all
+share one set of layout and gradient definitions with the live preview.
 
 ## Keyboard shortcuts
 

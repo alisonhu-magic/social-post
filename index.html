@@ -354,7 +354,6 @@
 
   /* ---- logo backing ---- */
   .logo .plate{display:flex; align-items:center; justify-content:center; box-sizing:content-box}
-  .logo .plate.solid{border-radius:2cqmin}
 
   /* ---- setups ---- */
   .saverow{display:grid; grid-template-columns:1fr auto; gap:var(--s2)}
@@ -472,7 +471,7 @@
         <span class="x">×</span>
         <div class="field"><label for="ch">Height</label><input id="ch" type="number" min="16" max="8192" step="1" value="640"></div>
       </div>
-      <button class="switch" id="maskToggle" role="switch" aria-checked="false">
+      <button class="switch" id="maskToggle" role="switch" aria-checked="true">
         <span class="switch-label">Fade mask</span>
         <span class="switch-track"><span class="switch-knob"></span></span>
       </button>
@@ -576,7 +575,7 @@
       <div style="height:var(--s4)"></div>
       <div class="slider"><div class="row"><label class="lbl" for="tMeasure">Measure</label><span class="val" id="tMeasure_v"></span></div><input id="tMeasure" type="range" min="1" max="12" step="1" value="7"></div>
       <div class="slider"><div class="row"><label class="lbl" for="tGap">Stack gap</label><span class="val" id="tGap_v"></span></div><input id="tGap" type="range" min="0" max="8" step="0.1" value="1.4"></div>
-      <p class="note">Sizes follow a 1.333 scale set as a share of canvas width. Measure is counted in grid columns and text insets to the grid margin. Wrap words in <code>*asterisks*</code> for italic.</p>
+      <p class="note">Four sizes on a 1.61 scale, set as a share of canvas width. Measure is counted in grid columns and text insets to the grid margin. Wrap words in <code>*asterisks*</code> for italic.</p>
     </section>
 
     <section class="group collapsed">
@@ -595,11 +594,6 @@
         <button data-v="bc" aria-pressed="false">↓</button>
         <button data-v="br" aria-pressed="false">↘</button>
       </div>
-      <div class="row" style="margin:var(--s4) 0 var(--s2)"><label class="lbl">Size</label></div>
-      <div class="seg" id="lSize">
-        <button data-v="L" aria-pressed="true">L</button>
-        <button data-v="XL" aria-pressed="false">XL</button>
-      </div>
       <div class="row" style="margin:var(--s4) 0 var(--s2)"><label class="lbl">Color</label></div>
       <div class="seg" id="lColor">
         <button data-v="black" aria-pressed="false">Black</button>
@@ -610,9 +604,8 @@
       <div class="seg" id="lPlate">
         <button data-v="none" aria-pressed="true">None</button>
         <button data-v="scrim" aria-pressed="false">Scrim</button>
-        <button data-v="solid" aria-pressed="false">Plate</button>
       </div>
-      <p class="note" style="margin-top:var(--s3)">Backing clears the pattern behind the mark using the background color. <b>Scrim</b> fades out softly; <b>Plate</b> is a hard field.</p>
+      <p class="note" style="margin-top:var(--s3)"><b>Scrim</b> lays a soft wash of the background color behind the mark so it stays legible over a dense pattern. It fades out well past the mark and never shifts its position.</p>
     </section>
 
     <!-- ===== GUIDES ===== -->
@@ -665,17 +658,33 @@ const FONT_FACES = {"300n": "@font-face{font-family:'Suisse BP Intl';font-style:
   st.textContent = Object.values(FONT_FACES).join('\n');
   document.head.appendChild(st); })();
 
-/* type scale — 1.333 ratio, expressed as a share of canvas width so the
-   proportion survives any export size */
-const TYPE_STEPS = ['XS','S','M','L','XL','2XL','3XL','4XL'];
-const TYPE_PCT   = [0.9, 1.2, 1.6, 2.1, 2.8, 3.7, 5.0, 6.6];
+/* type scale — four steps on a ~1.61 ratio, anchored so the eyebrow (1.2) and
+   headline (5.0) defaults land exactly on a step. Expressed as a share of
+   canvas width so the proportion survives any export size. */
+const TYPE_STEPS = ['S','M','L','XL'];
+const TYPE_PCT   = [1.2, 1.9, 3.1, 5.0];
+/* tolerate step indices from older setups that used the 8-step ladder */
+const stepPct = i => TYPE_PCT[Math.min(Math.max(i|0, 0), TYPE_PCT.length - 1)];
 const ROLES = {
   eyebrow:{weight:500, lead:1.30, track:0.10, upper:true,  faceN:'500n', faceI:'500n', ckey:'cEyebrow'},
   head:   {weight:300, lead:1.06, track:-0.02, upper:false, faceN:'300n', faceI:'300i', ckey:'cHead'},
   body:   {weight:400, lead:1.50, track:0.00,  upper:false, faceN:'400n', faceI:'400i', ckey:'cBody'}
 };
-/* logo plate keeps the mark legible over dense pattern */
-const PLATE_PAD = 0.55;   // padding as a share of logo height
+/* logo scrim keeps the mark legible over dense pattern — a soft elliptical
+   wash of the background colour, centred on the mark and extended by a halo.
+   One geometry helper drives the preview, PNG, HTML and React output. */
+const SCRIM_PAD  = 1.6;   // halo thickness as a share of logo height
+const SCRIM_CORE = 45;    // % of the radius that stays fully opaque before the fade
+const scrimPad = h => h * SCRIM_PAD;
+function scrimRadii(w, h){ const pad = scrimPad(h); return [w/2 + pad, h/2 + pad]; }
+function scrimBg(pc){ return `radial-gradient(closest-side, ${pc} 0%, ${pc} ${SCRIM_CORE}%, ${hexA(pc,0)} 100%)`; }
+/* Padding grows the box so closest-side yields radii (w/2+pad, h/2+pad), and an
+   equal negative margin cancels it for layout so the mark itself stays on the
+   grid margin. A background paints behind the glyph, so no z-index is needed. */
+function scrimStyle(pc, h){
+  const p = scrimPad(h).toFixed(3);
+  return `padding:${p}cqmin;margin:-${p}cqmin;background:${scrimBg(pc)}`;
+}
 
 const LOGO = {
   mark:{ svg:"<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"64 64 86 96\" fill=\"currentColor\"><path d=\"M103.239 64.9959C105.572 63.668 108.428 63.668 110.761 64.9959L146.231 85.2729C148.548 86.5807 149.988 89.0483 150 91.728V132.274C149.988 134.954 148.548 137.417 146.231 138.729L110.761 158.998C108.428 160.334 105.572 160.334 103.239 158.998L67.7691 138.721C65.4521 137.409 64.0119 134.946 64 132.266V91.712C64.0159 89.0363 65.4521 86.5727 67.7691 85.2649L103.239 64.9959ZM105.865 70.2911L69.9037 131.938C69.6458 132.39 69.6498 132.946 69.9116 133.39C70.1735 133.838 70.6575 134.11 71.1733 134.098H143.081C143.592 134.102 144.073 133.83 144.33 133.386C144.588 132.938 144.592 132.386 144.334 131.938L108.389 70.2911C108.123 69.8431 107.643 69.5672 107.123 69.5672C106.603 69.5672 106.123 69.8431 105.857 70.2911H105.865ZM125.219 112.461C125.219 122.483 117.03 130.594 106.905 130.594C96.7876 130.594 88.5907 122.483 88.5907 112.461C88.5907 102.446 96.7876 94.3356 106.905 94.3356C117.03 94.3356 125.227 102.446 125.227 112.461H125.219ZM99.3665 118.676C99.3665 119.012 99.5014 119.332 99.7355 119.568C99.9735 119.804 100.295 119.936 100.628 119.932H113.181C113.515 119.936 113.836 119.804 114.074 119.568C114.312 119.336 114.447 119.012 114.451 118.676V106.246C114.451 105.558 113.888 104.998 113.189 104.998H100.628C99.9219 104.998 99.3665 105.558 99.3665 106.246V118.676Z\"/></svg>", ar:0.8958 },
@@ -684,8 +693,8 @@ const LOGO = {
 
 /* logo colours — the three sanctioned marks */
 const LOGO_COLORS = {black:'#0E0E0F', white:'#FEFDF9', blue:'#5B83E4'};
-/* logo height as a share of the grid reference (min side) */
-const LOGO_SIZES = {S:2.6, M:3.6, L:4.8, XL:6.4};
+/* logo height as a share of the grid reference (min side) — one fixed size */
+const LOGO_SIZE = 4.8;
 
 /* ===================== state ===================== */
 const S = {
@@ -695,18 +704,18 @@ const S = {
   contrast:1.9, bias:.18, grain:.012,
   colors:['#3D6FE8', '#E7E4DB', '#BACCF8'],   // [0] ground, rest marks — brand palette only
   weights:[0, 50, 50],                        // per-mark appearance density %, aligned to colors indices
-  maskDir:'none', maskOn:false, maskSolid:30, maskFade:70,
+  maskDir:'to right', maskOn:true, maskSolid:30, maskFade:70,   // maskDir follows text align via syncMaskToAlign()
   canvasW:1920, canvasH:640,
   mouseMode:0, mouseRadius:0.16, mouseStrength:1,
   mx:0.5, my:0.5, mtx:0.5, mty:0.5, mon:0, mtOn:0,
   grid:{ show:false, cols:12, margin:6, gutter:1.5 },
-  logo:{ type:'lockup', pos:'tl', size:'L', color:'white', plate:'none', plateIdx:0 },   // plateIdx 0 = ground/bg; backing always uses bg
+  logo:{ type:'lockup', pos:'tl', color:'white', plate:'none', plateIdx:0 },   // plateIdx 0 = ground/bg; backing always uses bg
   text:{
     on:true,
     eyebrow:'Authorization layer',
     head:'Policy, enforced *before* the transaction exists.',
     body:'',
-    eyebrowStep:1, headStep:6, bodyStep:2,
+    eyebrowStep:0, headStep:3, bodyStep:1,
     align:'left', vAlign:'middle',
     cEyebrow:1, cHead:1, cBody:1, spanCols:7, gap:1.4
   },
@@ -1392,10 +1401,24 @@ $('clearImg').onclick = ()=>{
 };
 $('invert').onclick = ()=>{ S.invert = S.invert ? 0 : 1; setSwitch('invert', !!S.invert); };
 
+/* One gradient definition for the preview, HTML and React output.
+   'center' is symmetric — solid through the middle and fading out to both
+   edges — so centred copy is protected while the pattern still reads at the
+   sides. Fade end is forced past the solid stop so the stops never invert. */
+function maskStops(){
+  const s = S.maskSolid, f = Math.max(S.maskFade, s + 1);
+  return S.maskDir === 'center'
+    ? [[50 - f/2, 0], [50 - s/2, 1], [50 + s/2, 1], [50 + f/2, 0]]
+    : [[0, 1], [s, 1], [f, 0], [100, 0]];
+}
+function maskGradient(){
+  if(S.maskDir === 'none') return '';
+  const dir = S.maskDir === 'center' ? 'to right' : S.maskDir;
+  const stops = maskStops().map(([p,a]) => `${hexA(S.colors[0], a)} ${+p.toFixed(2)}%`);
+  return `linear-gradient(${dir}, ${stops.join(', ')})`;
+}
 function applyMask(){
-  const m = $('mask');
-  m.style.background = (S.maskDir==='none') ? 'none'
-    : `linear-gradient(${S.maskDir}, ${S.colors[0]} ${S.maskSolid}%, transparent ${S.maskFade}%)`;
+  $('mask').style.background = maskGradient() || 'none';
 }
 function meta(){
   $('exportSize').textContent = `${Math.round(S.canvasW)} × ${Math.round(S.canvasH)}`;
@@ -1485,15 +1508,10 @@ function renderLogo(){
   L.style.justifyContent = j;
   L.style.alignItems = a;
   L.style.color = LOGO_COLORS[S.logo.color];
-  const h = LOGO_SIZES[S.logo.size];
-  const pad = h * PLATE_PAD;
+  const h = LOGO_SIZE;
   const pc = palAt(S.logo.plateIdx);
   let style = `height:${h}cqmin`;
-  if(S.logo.plate === 'solid'){
-    style += `;padding:${pad}cqmin;background:${pc}`;
-  } else if(S.logo.plate === 'scrim'){
-    style += `;padding:${pad}cqmin;background:radial-gradient(closest-side, ${pc} 0%, ${pc} 55%, ${hexA(pc,0)} 100%)`;
-  }
+  if(S.logo.plate === 'scrim') style += ';' + scrimStyle(pc, h);
   L.innerHTML = `<span class="plate ${S.logo.plate}" style="${style}">${logoSvg()}</span>`;
 }
 /* hex + alpha → rgba(), so the scrim fades to fully transparent
@@ -1511,25 +1529,20 @@ function logoDataUrl(){
 function drawLogo(ctx, W, H){
   if(S.logo.type === 'none') return Promise.resolve();
   const m = marginPx(W,H);
-  const h = LOGO_SIZES[S.logo.size]/100 * gridRef(W,H);
+  const h = LOGO_SIZE/100 * gridRef(W,H);
   const w = h * logoAR();
   const p = S.logo.pos;
   const x = p[1]==='l' ? m : p[1]==='r' ? W - m - w : (W - w)/2;
   const y = p[0]==='t' ? m : H - m - h;
-  const pad = h * PLATE_PAD;
   const pc = palAt(S.logo.plateIdx);
-  if(S.logo.plate === 'solid'){
-    const r = h * 0.28;
-    const bx = x-pad, by = y-pad, bw = w+pad*2, bh = h+pad*2;
-    ctx.save(); ctx.fillStyle = pc; ctx.beginPath();
-    if(ctx.roundRect) ctx.roundRect(bx,by,bw,bh,r); else ctx.rect(bx,by,bw,bh);
-    ctx.fill(); ctx.restore();
-  } else if(S.logo.plate === 'scrim'){
+  if(S.logo.plate === 'scrim'){
     const cx = x + w/2, cy = y + h/2;
-    const rad = Math.max(w, h)/2 + pad;
-    const g = ctx.createRadialGradient(cx,cy,0,cx,cy,rad);
-    g.addColorStop(0, pc); g.addColorStop(0.55, pc); g.addColorStop(1, hexA(pc,0));
-    ctx.save(); ctx.fillStyle = g; ctx.fillRect(cx-rad, cy-rad, rad*2, rad*2); ctx.restore();
+    const [rx, ry] = scrimRadii(w, h);
+    // createRadialGradient is circular, so squash the space to get the ellipse
+    const g = ctx.createRadialGradient(0,0,0,0,0,ry);
+    g.addColorStop(0, pc); g.addColorStop(SCRIM_CORE/100, pc); g.addColorStop(1, hexA(pc,0));
+    ctx.save(); ctx.translate(cx,cy); ctx.scale(rx/ry, 1);
+    ctx.fillStyle = g; ctx.fillRect(-ry, -ry, ry*2, ry*2); ctx.restore();
   }
   return new Promise(res=>{
     const im = new Image();
@@ -1557,7 +1570,6 @@ gseg('gCols_seg', S.grid, 'cols', v=>parseInt(v), ()=>{
 });
 gseg('lType',  S.logo, 'type',  v=>v, renderLogo);
 gseg('lPos',   S.logo, 'pos',   v=>v, renderLogo);
-gseg('lSize',  S.logo, 'size',  v=>v, renderLogo);
 gseg('lColor', S.logo, 'color', v=>v, renderLogo);
 gseg('lPlate', S.logo, 'plate', v=>v, renderLogo);
 // backing color is always the background (ground) color — plateIdx stays 0, no selector
@@ -1633,7 +1645,7 @@ function renderText(){
     if(!has) return;
     el.innerHTML = mdItalic(role.upper ? txt.toUpperCase() : txt);
     el.style.color         = roleColor(role);
-    el.style.fontSize      = TYPE_PCT[step] + 'cqw';
+    el.style.fontSize      = stepPct(step) + 'cqw';
     el.style.lineHeight    = role.lead;
     el.style.letterSpacing = role.track + 'em';
   };
@@ -1692,7 +1704,7 @@ function drawText(ctx, W, H){
 
   let total = 0;
   blocks.forEach(b=>{
-    b.size  = TYPE_PCT[b.step]/100 * W;
+    b.size  = stepPct(b.step)/100 * W;
     b.lines = wrapBlock(ctx, b, maxW);
     b.lineH = b.size * b.role.lead;
     b.h     = b.lines.length * b.lineH;
@@ -1710,9 +1722,11 @@ function drawText(ctx, W, H){
     ctx.fillStyle = b.col;
     const track = b.role.track * b.size;
     b.lines.forEach(line=>{
+      // centred copy centres the measure box in the canvas (as the preview's
+      // flex layout does), not inside a box pinned to the left margin
       let x = T.align === 'left'  ? pad
             : T.align === 'right' ? W - pad - line.width
-            : pad + (maxW - line.width) / 2;
+            : (W - line.width) / 2;
       const baseline = y + b.size * 0.76 + (b.lineH - b.size) / 2;
       line.runs.forEach(r=>{
         ctx.font = fontStr(b.role.weight, r.italic, b.size);
@@ -1758,8 +1772,9 @@ tseg('tAlign','align');
 tseg('tVAlign','vAlign');
 
 // mask is a single on/off toggle; when on, its direction follows the text
-// alignment: left→mask left, right→mask right, center→mask bottom
-const ALIGN_MASK = { left:'to right', center:'to top', right:'to left' };
+// alignment: left→fade rightwards, right→fade leftwards, center→symmetric
+// band that clears the middle and fades out to both edges
+const ALIGN_MASK = { left:'to right', center:'center', right:'to left' };
 function syncMaskToAlign(){
   S.maskDir = S.maskOn ? (ALIGN_MASK[S.text.align] || 'to right') : 'none';
   applyMask(); meta();
@@ -1943,7 +1958,7 @@ function syncAll(){
   press('field', S.field); press('mouseMode', S.mouseMode);
   setSwitch('maskToggle', S.maskOn); setSwitch('gShow', S.grid.show);
   press('gCols_seg', S.grid.cols); press('lType', S.logo.type); press('lPos', S.logo.pos);
-  press('lSize', S.logo.size); press('lColor', S.logo.color); press('lPlate', S.logo.plate);
+  press('lColor', S.logo.color); press('lPlate', S.logo.plate);
   press('tAlign', S.text.align); press('tVAlign', S.text.vAlign);
   syncFormatSelect();
   setSwitch('invert', !!S.invert);
@@ -1965,13 +1980,10 @@ function stamp(ext){ return `newton-field-${S.field}-${Math.round(S.seed*100)}.$
 // paint the mask gradient (ground color fading out) onto a 2d context
 function paintMask(ctx, w, h){
   if(S.maskDir==='none') return;
-  const dirs = {'to right':[0,0,w,0], 'to left':[w,0,0,0], 'to top':[0,h,0,0]};
+  const dirs = {'to right':[0,0,w,0], 'to left':[w,0,0,0], 'to top':[0,h,0,0], 'center':[0,0,w,0]};
   const [x0,y0,x1,y1] = dirs[S.maskDir];
   const grad = ctx.createLinearGradient(x0,y0,x1,y1);
-  grad.addColorStop(0, S.colors[0]);
-  grad.addColorStop(S.maskSolid/100, S.colors[0]);
-  grad.addColorStop(Math.max(S.maskFade,S.maskSolid+1)/100, S.colors[0]+'00');
-  grad.addColorStop(1, S.colors[0]+'00');
+  maskStops().forEach(([p,a]) => grad.addColorStop(Math.min(Math.max(p,0),100)/100, hexA(S.colors[0], a)));
   ctx.fillStyle = grad; ctx.fillRect(0,0,w,h);
 }
 
@@ -2166,10 +2178,9 @@ function logoMarkupForExport(){
     + "padding:" + S.grid.margin + "cqmin;justify-content:" + j + ";align-items:" + a
     + ";color:" + LOGO_COLORS[S.logo.color] + "}\n"
     + "  .nf-logo svg{display:block;height:100%;width:auto}";
-  const h = LOGO_SIZES[S.logo.size], pad = h * PLATE_PAD, pc = palAt(S.logo.plateIdx);
+  const h = LOGO_SIZE, pc = palAt(S.logo.plateIdx);
   let inner = 'height:' + h + 'cqmin;display:flex;align-items:center;justify-content:center;box-sizing:content-box';
-  if(S.logo.plate === 'solid')      inner += ';padding:' + pad + 'cqmin;background:' + pc + ';border-radius:' + (h*0.28) + 'cqmin';
-  else if(S.logo.plate === 'scrim') inner += ';padding:' + pad + 'cqmin;background:radial-gradient(closest-side,' + pc + ' 0%,' + pc + ' 55%,' + hexA(pc,0) + ' 100%)';
+  if(S.logo.plate === 'scrim') inner += ';' + scrimStyle(pc, h);
   const html = '\n    <div class="nf-logo"><span style="' + inner + '">' + logoSvg() + '</span></div>';
   return {css, html};
 }
@@ -2189,7 +2200,7 @@ function textMarkupForExport(){
   const rows = [];
   const add = (tag, cls, txt, step, role)=>{
     if(!txt.trim()) return;
-    css.push("  ." + cls + "{font-size:" + TYPE_PCT[step] + "cqw;line-height:" + role.lead
+    css.push("  ." + cls + "{font-size:" + stepPct(step) + "cqw;line-height:" + role.lead
       + ";letter-spacing:" + role.track + "em;color:" + roleColor(role) + ";font-weight:" + role.weight
       + (role.upper ? ";text-transform:uppercase" : "") + "}");
     rows.push("      <" + tag + ' class="' + cls + '">' + mdItalic(txt) + "</" + tag + ">");
@@ -2206,8 +2217,7 @@ function textMarkupForExport(){
 /* ---- self-contained animated HTML for a website ---- */
 function buildStandalone(){
   const flat = []; S.colors.slice(0,8).forEach(c=>flat.push(...hex2rgb(c).map(n=>+n.toFixed(4))));
-  const maskCss = (S.maskDir==='none') ? ''
-    : `linear-gradient(${S.maskDir}, ${S.colors[0]} ${S.maskSolid}%, transparent ${S.maskFade}%)`;
+  const maskCss = maskGradient();
   const maskDiv = maskCss ? `\n    <div class="nf-mask" style="background:${maskCss}"></div>` : '';
   const TX = textMarkupForExport();
   const LG = logoMarkupForExport();
@@ -2304,9 +2314,8 @@ if($('copyReact')) $('copyReact').onclick = ()=>{
         className="pointer-events-none absolute inset-0 flex"
         style={{ padding: '${S.grid.margin}cqmin', justifyContent: '${lj}', alignItems: '${la}', color: '${LOGO_COLORS[S.logo.color]}' }}
       >
-        <span style={{ height: '${LOGO_SIZES[S.logo.size]}cqmin', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'content-box'${
-          S.logo.plate==='solid'  ? `, padding: '${LOGO_SIZES[S.logo.size]*PLATE_PAD}cqmin', background: '${palAt(S.logo.plateIdx)}', borderRadius: '${LOGO_SIZES[S.logo.size]*0.28}cqmin'` :
-          S.logo.plate==='scrim'  ? `, padding: '${LOGO_SIZES[S.logo.size]*PLATE_PAD}cqmin', background: 'radial-gradient(closest-side, ${palAt(S.logo.plateIdx)} 0%, ${palAt(S.logo.plateIdx)} 55%, ${hexA(palAt(S.logo.plateIdx),0)} 100%)'` : ''
+        <span style={{ height: '${LOGO_SIZE}cqmin', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'content-box'${
+          S.logo.plate==='scrim' ? `, padding: '${scrimPad(LOGO_SIZE)}cqmin', margin: '-${scrimPad(LOGO_SIZE)}cqmin', background: '${scrimBg(palAt(S.logo.plateIdx))}'` : ''
         } }}>${inner}</span>
       </div>`;
   }
@@ -2317,7 +2326,7 @@ if($('copyReact')) $('copyReact').onclick = ()=>{
     const rows = [];
     const push = (tag, txt, step, role)=>{
       if(!txt.trim()) return;
-      const st = `{{ fontSize: '${TYPE_PCT[step]}cqw', lineHeight: ${role.lead}, letterSpacing: '${role.track}em', color: '${roleColor(role)}', fontWeight: ${role.weight}${role.upper ? ", textTransform: 'uppercase'" : ''}, margin: 0 }}`;
+      const st = `{{ fontSize: '${stepPct(step)}cqw', lineHeight: ${role.lead}, letterSpacing: '${role.track}em', color: '${roleColor(role)}', fontWeight: ${role.weight}${role.upper ? ", textTransform: 'uppercase'" : ''}, margin: 0 }}`;
       rows.push(`          <${tag} style={${st}}>${jsxRuns(txt)}</${tag}>`);
     };
     push('p',  T.eyebrow, T.eyebrowStep, ROLES.eyebrow);
@@ -2451,7 +2460,7 @@ ${useImg ? `
       </div>
       ${S.maskDir!=='none' ? `<div
         className="pointer-events-none absolute inset-0"
-        style={{ background: 'linear-gradient(${S.maskDir}, ${S.colors[0]} ${S.maskSolid}%, transparent ${S.maskFade}%)' }}
+        style={{ background: '${maskGradient()}' }}
       />` : `{/* no mask */}`}
       ${logoJsx}
       ${textJsx}
