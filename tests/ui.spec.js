@@ -186,6 +186,16 @@ test.describe('accessibility structure', () => {
     expect(unnamed).toEqual([]);
   });
 
+  test('every select is labelled', async ({ page }) => {
+    await open(page);
+    await expandAll(page);
+    const unnamed = await page.evaluate(() =>
+      [...document.querySelectorAll('select')]
+        .filter(s => !s.getAttribute('aria-label') && !s.labels?.length)
+        .map(s => s.id || s.className));
+    expect(unnamed).toEqual([]);
+  });
+
   test('segmented controls are exposed as named groups', async ({ page }) => {
     await open(page);
     const bad = await page.evaluate(() =>

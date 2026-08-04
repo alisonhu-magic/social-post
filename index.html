@@ -557,17 +557,17 @@
 
       <div class="tfield">
         <div class="thead"><label for="tiEyebrow">Eyebrow</label>
-          <span class="hgrp"><select class="sz clr" id="cEyebrow"></select><select class="sz" id="szEyebrow"></select></span></div>
+          <span class="hgrp"><select class="sz clr" id="cEyebrow" aria-label="Eyebrow color"></select><select class="sz" id="szEyebrow" aria-label="Eyebrow size"></select></span></div>
         <input type="text" id="tiEyebrow" placeholder="Authorization layer">
       </div>
       <div class="tfield">
         <div class="thead"><label for="tiHead">Headline</label>
-          <span class="hgrp"><select class="sz clr" id="cHead"></select><select class="sz" id="szHead"></select></span></div>
+          <span class="hgrp"><select class="sz clr" id="cHead" aria-label="Headline color"></select><select class="sz" id="szHead" aria-label="Headline size"></select></span></div>
         <textarea id="tiHead" rows="3" placeholder="Policy, enforced *before* the transaction exists."></textarea>
       </div>
       <div class="tfield">
         <div class="thead"><label for="tiBody">Body</label>
-          <span class="hgrp"><select class="sz clr" id="cBody"></select><select class="sz" id="szBody"></select></span></div>
+          <span class="hgrp"><select class="sz clr" id="cBody" aria-label="Body color"></select><select class="sz" id="szBody" aria-label="Body size"></select></span></div>
         <textarea id="tiBody" rows="3" placeholder="Optional supporting line."></textarea>
       </div>
 
@@ -1279,6 +1279,8 @@ const BRAND = [
 const MAX_COLORS = 8;   // shader supports up to 8 active colors
 const MIN_COLORS = 2;   // ground + at least one mark
 const brandIndexOf = hex => BRAND.findIndex(b => b.hex.toLowerCase() === String(hex).toLowerCase());
+// brand name where we have one, otherwise the hex itself
+const colorName = hex => { const i = brandIndexOf(hex); return i >= 0 ? BRAND[i].name : String(hex); };
 const inColors = hex => S.colors.findIndex(c => c.toLowerCase() === hex.toLowerCase());
 
 /* ---- WCAG contrast helpers (ground vs mark) ---- */
@@ -1438,8 +1440,7 @@ function renderRoles(){
   box.appendChild(head);
 
   for(let k=1;k<S.colors.length;k++){
-    const bi = brandIndexOf(S.colors[k]);
-    const name = bi >= 0 ? BRAND[bi].name : S.colors[k];
+    const name = colorName(S.colors[k]);
     const wrap = document.createElement('div'); wrap.className = 'slider';
     const row = document.createElement('div'); row.className = 'row';
     const lbl = document.createElement('label'); lbl.className = 'lbl';
@@ -1925,7 +1926,10 @@ function syncTextColor(){
     S.colors.forEach((hex, i)=>{
       const o = document.createElement('option');
       o.value = i;
-      o.textContent = (i === 0 ? 'Ground' : 'Mark ' + i);
+      /* Name the colour rather than its slot — "Mark 2" told you nothing about
+         what you were picking. The ground is flagged because copy set to it
+         disappears into the background. */
+      o.textContent = colorName(hex) + (i === 0 ? ' (bg)' : '');
       sel.appendChild(o);
     });
     if(obj[key] > S.colors.length - 1) obj[key] = S.colors.length - 1;
@@ -2272,7 +2276,7 @@ window.__NF = {
   isContextLost: ()=> contextLost,
   limits: ()=> ({ tileDim: tileLimit(), tileArea: TILE_AREA_BUDGET, dimMin: DIM_MIN, dimMax: DIM_MAX, areaMax: AREA_MAX }),
   fitFrameWidth, tilePlan, clampDim, axisMax, maskStops, maskGradient,
-  toShares, setWeight, normaliseWeights,
+  toShares, setWeight, normaliseWeights, colorName,
   contrastRatio, aaBadge, stepPct, tokenize, spanPx, colWidthPx, videoClock,
   composite, paintField, activeBlocks,
   render(){ sizeCanvas(); draw(canvas.width, canvas.height); }

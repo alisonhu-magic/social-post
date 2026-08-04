@@ -100,6 +100,47 @@ test.describe('copy', () => {
     expect(Number(await page.inputValue('#tMeasure'))).toBeGreaterThanOrEqual(narrowed);
   });
 
+  test('the colour select names each colour instead of numbering slots', async ({ page }) => {
+    const opts = await page.evaluate(() => [...document.getElementById('cHead').options].map(o => o.textContent));
+    const s = await state(page);
+    expect(opts).toHaveLength(s.colors.length);
+    expect(opts.some(o => /^Mark \d/.test(o))).toBe(false);
+    // every option carries a brand name from the live palette
+    const names = await page.evaluate(() =>
+      window.__NF.S.colors.map(hex => window.__NF.colorName(hex)));
+    names.forEach((name, i) => expect(opts[i]).toContain(name));
+  });
+
+  test('the ground option is flagged so copy is not set invisible by accident', async ({ page }) => {
+    const first = await page.evaluate(() => document.getElementById('cHead').options[0].textContent);
+    expect(first).toMatch(/\(bg\)$/);
+    const rest = await page.evaluate(() =>
+      [...document.getElementById('cHead').options].slice(1).map(o => o.textContent));
+    expect(rest.every(o => !/\(bg\)/.test(o))).toBe(true);
+  });
+
+  test('the option names follow the palette when it changes', async ({ page }) => {
+    await page.evaluate(() => {
+      const hexes = [...document.querySelectorAll('#brandSwatches .sw-hex')].map(e => e.textContent.toLowerCase());
+      document.querySelectorAll('#brandSwatches .sw-main')[hexes.indexOf('#cbc28f')].click();   // Gold
+    });
+    await settle(page);
+    const opts = await page.evaluate(() => [...document.getElementById('cHead').options].map(o => o.textContent));
+    expect(opts.some(o => o.includes('Gold'))).toBe(true);
+  });
+
+  test('promoting a colour to ground moves the (bg) flag with it', async ({ page }) => {
+    await page.evaluate(() => {
+      const gs = [...document.querySelectorAll('#brandSwatches .sw-ground')];
+      gs.find(g => g.getAttribute('aria-pressed') === 'false').click();
+    });
+    await settle(page);
+    const opts = await page.evaluate(() => [...document.getElementById('cHead').options].map(o => o.textContent));
+    const ground = await page.evaluate(() => window.__NF.colorName(window.__NF.S.colors[0]));
+    expect(opts[0]).toBe(ground + ' (bg)');
+    expect(opts.filter(o => /\(bg\)/.test(o))).toHaveLength(1);
+  });
+
   test('the colour select drives the rendered text colour', async ({ page }) => {
     const current = await page.inputValue('#cHead');
     const opts = await page.evaluate(() => [...document.getElementById('cHead').options].map(o => o.value));
