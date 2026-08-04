@@ -77,6 +77,89 @@ test.describe('clampDim', () => {
   }
 });
 
+test.describe('toShares', () => {
+  const shares = (page, colors, raw) => page.evaluate(([c, r]) => {
+    window.__NF.S.colors = c;
+    return window.__NF.toShares(r);
+  }, [colors, raw]);
+  const THREE = ['#203C7F', '#3D6FE8', '#BACCF8', '#E7E4DB'];
+
+  test('scales any set of raw weights to a total of 100', async ({ page }) => {
+    for (const raw of [[0, 50, 50, 50], [0, 1, 1, 1], [0, 900, 50, 50], [0, 7, 0, 0]]) {
+      const out = await shares(page, THREE, raw);
+      expect(out.slice(1).reduce((a, b) => a + b, 0), `raw ${raw}`).toBe(100);
+      expect(out[0]).toBe(0);
+    }
+  });
+
+  test('keeps the proportions of the raw weights', async ({ page }) => {
+    expect(await shares(page, THREE, [0, 60, 20, 20])).toEqual([0, 60, 20, 20]);
+    expect(await shares(page, THREE, [0, 300, 100, 100])).toEqual([0, 60, 20, 20]);
+  });
+
+  test('splits evenly when there is nothing to go on', async ({ page }) => {
+    const out = await shares(page, THREE, [0, 0, 0, 0]);
+    expect(out.slice(1).reduce((a, b) => a + b, 0)).toBe(100);
+    expect(Math.max(...out.slice(1)) - Math.min(...out.slice(1))).toBeLessThanOrEqual(1);
+  });
+
+  test('lands on exactly 100 for thirds rather than 99', async ({ page }) => {
+    const out = await shares(page, THREE, [0, 1, 1, 1]);
+    expect(out.slice(1).reduce((a, b) => a + b, 0)).toBe(100);
+    expect(out.slice(1).sort()).toEqual([33, 33, 34]);
+  });
+
+  test('treats negatives as zero', async ({ page }) => {
+    const out = await shares(page, THREE, [0, -50, 50, 50]);
+    expect(out[1]).toBe(0);
+    expect(out.slice(1).reduce((a, b) => a + b, 0)).toBe(100);
+  });
+
+  test('gives a lone mark the whole pattern', async ({ page }) => {
+    const out = await shares(page, ['#203C7F', '#3D6FE8'], [0, 7]);
+    expect(out).toEqual([0, 100]);
+  });
+});
+
+test.describe('setWeight', () => {
+  const apply = (page, colors, weights, idx, v) => page.evaluate(([c, w, i, val]) => {
+    window.__NF.S.colors = c; window.__NF.S.weights = w;
+    window.__NF.setWeight(i, val);
+    return window.__NF.S.weights;
+  }, [colors, weights, idx, v]);
+  const THREE = ['#203C7F', '#3D6FE8', '#BACCF8', '#E7E4DB'];
+
+  test('honours the value asked for exactly', async ({ page }) => {
+    for (const v of [0, 1, 33, 50, 99, 100]) {
+      const out = await apply(page, THREE, [0, 40, 30, 30], 1, v);
+      expect(out[1], `value ${v}`).toBe(v);
+      expect(out.slice(1).reduce((a, b) => a + b, 0)).toBe(100);
+    }
+  });
+
+  test('takes the remainder from the others in proportion', async ({ page }) => {
+    // 20 and 40 share the leftover 40 in a 1:2 ratio
+    expect(await apply(page, THREE, [0, 40, 20, 40], 1, 40)).toEqual([0, 40, 20, 40]);
+    expect(await apply(page, THREE, [0, 40, 20, 40], 1, 70)).toEqual([0, 70, 10, 20]);
+  });
+
+  test('clamps out-of-range input', async ({ page }) => {
+    expect((await apply(page, THREE, [0, 40, 30, 30], 1, 250))[1]).toBe(100);
+    expect((await apply(page, THREE, [0, 40, 30, 30], 1, -80))[1]).toBe(0);
+  });
+
+  test('spreads evenly when the others have nothing left', async ({ page }) => {
+    const out = await apply(page, THREE, [0, 100, 0, 0], 1, 40);
+    expect(out[1]).toBe(40);
+    expect(out[2]).toBe(30);
+    expect(out[3]).toBe(30);
+  });
+
+  test('a lone mark cannot be moved off 100', async ({ page }) => {
+    expect(await apply(page, ['#203C7F', '#3D6FE8'], [0, 100], 1, 25)).toEqual([0, 100]);
+  });
+});
+
 test.describe('axisMax', () => {
   test('leaves room for the full pixel budget on the other axis', async ({ page }) => {
     const { areaMax } = await page.evaluate(() => window.__NF.limits());

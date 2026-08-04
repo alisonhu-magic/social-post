@@ -1,8 +1,11 @@
 const { test, expect } = require('@playwright/test');
 const { open, settle, expandAll, state } = require('./helpers');
 
-/* S.colors[0] is the ground; the rest are marks. S.weights is index-aligned and
-   weights[0] is always 0 because the ground has no mark density. */
+/* S.colors[0] is the ground; the rest are marks. S.weights is index-aligned,
+   weights[0] is always 0 because the ground has no mark density, and the mark
+   shares always add up to 100. */
+
+const shareTotal = s => s.weights.slice(1).reduce((a, b) => a + b, 0);
 
 const mains = page => page.locator('#brandSwatches .sw-main');
 const grounds = page => page.locator('#brandSwatches .sw-ground');
@@ -24,6 +27,7 @@ test.describe('palette', () => {
     expect(s.colors.length).toBeGreaterThanOrEqual(2);
     expect(s.weights).toHaveLength(s.colors.length);
     expect(s.weights[0]).toBe(0);
+    expect(shareTotal(s)).toBe(100);
     expect(await grounds(page).count()).toBe(s.colors.length);
     expect(await page.locator('#brandSwatches .sw-ground[aria-pressed="true"]').count()).toBe(1);
   });
@@ -41,11 +45,27 @@ test.describe('palette', () => {
     expect((await state(page)).colors.length).toBe(before);
   });
 
-  test('a new mark starts at the default density', async ({ page }) => {
+  test('a new mark takes an even share and the others give way', async ({ page }) => {
+    const before = await state(page);
     await clickBrand(page, '#CBC28F');
     await settle(page);
-    const s = await state(page);
-    expect(s.weights[s.colors.indexOf('#CBC28F')]).toBe(50);
+    const after = await state(page);
+    const marks = after.colors.length - 1;
+    expect(shareTotal(after)).toBe(100);
+    expect(after.weights[after.colors.indexOf('#CBC28F')]).toBe(Math.round(100 / marks));
+    // every pre-existing mark shrank rather than keeping its old number
+    for (let k = 1; k < before.colors.length; k++) {
+      expect(after.weights[after.colors.indexOf(before.colors[k])]).toBeLessThan(before.weights[k]);
+    }
+  });
+
+  test('removing a mark hands its share to the survivors', async ({ page }) => {
+    const before = await state(page);
+    await clickBrand(page, before.colors[before.colors.length - 1]);
+    await settle(page);
+    const after = await state(page);
+    expect(shareTotal(after)).toBe(100);
+    expect(after.weights[1]).toBeGreaterThan(before.weights[1]);
   });
 
   test('refuses to drop below two colours and explains why', async ({ page }) => {
@@ -105,6 +125,7 @@ test.describe('palette', () => {
     const s = await state(page);
     expect(s.weights[0]).toBe(0);
     expect(s.weights[s.colors.indexOf(oldGround)]).toBeGreaterThan(0);
+    expect(shareTotal(s)).toBe(100);
   });
 
   test('removing the ground promotes the next colour', async ({ page }) => {
@@ -137,6 +158,94 @@ test.describe('palette', () => {
     });
     await settle(page);
     expect((await state(page)).weights[1]).toBe(0);
+  });
+
+  test('moving one share takes it from the others and still totals 100', async ({ page }) => {
+    await clickBrand(page, '#CBC28F');   // three marks, so redistribution is visible
+    await settle(page);
+
+    for (const target of [0, 10, 55, 100, 33]) {
+      await page.evaluate(v => {
+        const el = document.querySelector('#palRoles input[type=range]');
+        el.value = String(v); el.dispatchEvent(new Event('input', { bubbles: true }));
+      }, target);
+      const s = await state(page);
+      expect(s.weights[1], `target ${target}`).toBe(target);
+      expect(shareTotal(s), `total after ${target}`).toBe(100);
+      expect(s.weights.every(w => w >= 0 && w <= 100)).toBe(true);
+    }
+  });
+
+  test('the other sliders move on screen, not just in state', async ({ page }) => {
+    await clickBrand(page, '#CBC28F');
+    await settle(page);
+    const read = () => page.evaluate(() =>
+      [...document.querySelectorAll('#palRoles input[type=range]')].map(e => Number(e.value)));
+    const before = await read();
+    await page.evaluate(() => {
+      const el = document.querySelector('#palRoles input[type=range]');
+      el.value = '80'; el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const after = await read();
+    expect(after[0]).toBe(80);
+    expect(after.slice(1)).not.toEqual(before.slice(1));
+    expect(after.reduce((a, b) => a + b, 0)).toBe(100);
+  });
+
+  test('the number fields stay in step with the sliders', async ({ page }) => {
+    await clickBrand(page, '#CBC28F');
+    await settle(page);
+    await page.evaluate(() => {
+      const el = document.querySelector('#palRoles input[type=range]');
+      el.value = '70'; el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const pairs = await page.evaluate(() =>
+      [...document.querySelectorAll('#palRoles .slider')].map(row => ({
+        range: Number(row.querySelector('input[type=range]').value),
+        val: Number(row.querySelector('input.val').value),
+      })));
+    for (const p of pairs) expect(p.val).toBe(p.range);
+    expect(pairs.reduce((a, p) => a + p.range, 0)).toBe(100);
+  });
+
+  test('typing a share redistributes the same way dragging does', async ({ page }) => {
+    await clickBrand(page, '#CBC28F');
+    await settle(page);
+    await page.evaluate(() => {
+      const el = document.querySelector('#palRoles input.val');
+      el.value = '60';
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    const s = await state(page);
+    expect(s.weights[1]).toBe(60);
+    expect(shareTotal(s)).toBe(100);
+  });
+
+  test('a single mark colour holds the whole pattern and its slider is disabled', async ({ page }) => {
+    for (let guard = 0; guard < 12; guard++) {
+      const colors = (await state(page)).colors;
+      if (colors.length <= 2) break;
+      await clickBrand(page, colors[colors.length - 1]);
+    }
+    const s = await state(page);
+    expect(s.colors.length).toBe(2);
+    expect(s.weights[1]).toBe(100);
+    expect(await page.locator('#palRoles input[type=range]')).toBeTruthy();
+    expect(await page.evaluate(() =>
+      [...document.querySelectorAll('#palRoles input')].every(i => i.disabled))).toBe(true);
+  });
+
+  test('promoting a mark to ground keeps the shares totalling 100', async ({ page }) => {
+    await clickBrand(page, '#CBC28F');
+    await settle(page);
+    await page.evaluate(() => {
+      const gs = [...document.querySelectorAll('#brandSwatches .sw-ground')];
+      gs.find(g => g.getAttribute('aria-pressed') === 'false').click();
+    });
+    await settle(page);
+    const s = await state(page);
+    expect(s.weights[0]).toBe(0);
+    expect(shareTotal(s)).toBe(100);
   });
 
   test('zeroing every density leaves the ground visible rather than a black frame', async ({ page }) => {

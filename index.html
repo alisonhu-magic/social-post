@@ -1299,17 +1299,62 @@ function refreshColorConsumers(){
   meta();
 }
 
+/* ---- mark density as shares of 100 ----
+   The shader picks a mark colour by weighted lottery, normalising the weights it
+   is given, so only their ratio has ever mattered. Holding them to a total of
+   100 makes the sliders mean what the label says: the share of marks that get
+   this colour. Moving one takes its share from the others. */
+const markIndices = () => { const a = []; for(let k=1;k<S.colors.length;k++) a.push(k); return a; };
+
+// scale a set of raw shares to whole numbers totalling exactly 100
+function toShares(raw){
+  const idx = markIndices();
+  const out = S.colors.map(()=> 0);
+  if(!idx.length) return out;
+  const clean = k => Math.max(Number(raw[k]) || 0, 0);
+  const sum = idx.reduce((a,k)=> a + clean(k), 0);
+  const exact = {};
+  idx.forEach(k=> exact[k] = sum > 0 ? clean(k) * 100 / sum : 100 / idx.length);
+  // largest remainder, so rounding still lands on 100 rather than 99 or 101
+  idx.forEach(k=> out[k] = Math.floor(exact[k]));
+  let left = 100 - idx.reduce((a,k)=> a + out[k], 0);
+  idx.slice()
+     .sort((a,b)=> (exact[b] - out[b]) - (exact[a] - out[a]))
+     .forEach(k=>{ if(left > 0){ out[k]++; left--; } });
+  return out;
+}
+function normaliseWeights(){ S.weights = toShares(S.weights); }
+
+// set one mark's share and take the remainder from the others, in proportion
+function setWeight(idx, value){
+  const idxs = markIndices();
+  if(idxs.length <= 1){ normaliseWeights(); return; }   // a lone mark is always the whole pattern
+  const v = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+  const others = idxs.filter(k=> k !== idx);
+  const pool = others.reduce((a,k)=> a + Math.max(S.weights[k] || 0, 0), 0);
+  const rest = 100 - v;
+  const raw = S.colors.map(()=> 0);
+  raw[idx] = v;
+  others.forEach(k=>{
+    raw[k] = pool > 0 ? Math.max(S.weights[k] || 0, 0) / pool * rest : rest / others.length;
+  });
+  S.weights = toShares(raw);
+}
+
 function toggleBrand(bi){
   const hex = BRAND[bi].hex;
   const at = inColors(hex);
   if(at === -1){
     if(S.colors.length >= MAX_COLORS){ toast('Up to '+MAX_COLORS+' colors'); return; }
-    S.colors.push(hex); S.weights.push(50);
+    S.colors.push(hex); S.weights.push(0);
+    // a new mark takes an even share, the rest give way in proportion
+    setWeight(S.colors.length - 1, Math.round(100 / markIndices().length));
   } else {
     // always keep a ground + one mark; say so rather than ignoring the click
     if(S.colors.length <= MIN_COLORS){ toast('Keep at least '+MIN_COLORS+' colors — a ground and one mark'); return; }
     // if the ground is being removed, the next color becomes ground automatically
     S.colors.splice(at, 1); S.weights.splice(at, 1);
+    normaliseWeights();                     // survivors grow to fill the gap
   }
   renderPalette();
   refreshColorConsumers();
@@ -1319,11 +1364,14 @@ function toggleBrand(bi){
 function setGround(hex){
   const at = inColors(hex);
   if(at <= 0) return;                       // not found, or already ground
-  if(!S.weights[0]) S.weights[0] = 50;      // demoted ground rejoins marks visibly
+  // the outgoing ground becomes a mark, so start it on an even share
+  const marks = markIndices().length;
+  S.weights[0] = marks > 1 ? 100 / (marks - 1) : 100;
   const [c] = S.colors.splice(at, 1);
   const [w] = S.weights.splice(at, 1);
   S.colors.unshift(c); S.weights.unshift(w);
   S.weights[0] = 0;                         // ground density is unused
+  normaliseWeights();
   renderPalette();
   refreshColorConsumers();
 }
@@ -1363,17 +1411,35 @@ function renderSwatches(){
   });
 }
 
+/* Rows are rebuilt only when the palette itself changes. While a slider is being
+   dragged the others are updated in place, because replacing the DOM mid-drag
+   would drop the pointer capture and stop the drag dead. */
+let roleRows = [];
+function syncRoleInputs(){
+  roleRows.forEach(({ idx, range, val })=>{
+    const share = Math.round(S.weights[idx] || 0);
+    if(document.activeElement !== range) range.value = share;
+    if(document.activeElement !== val) val.value = share;
+  });
+}
+
 function renderRoles(){
   const box = $('palRoles'); box.innerHTML = '';
+  roleRows = [];
   if(S.colors.length <= 1) return;
+  normaliseWeights();
+  const single = markIndices().length === 1;
+
   const head = document.createElement('p');
   head.className = 'note'; head.style.margin = 'var(--s4) 0 var(--s2)';
-  head.textContent = 'Mark density — how often each color appears';
+  head.textContent = single
+    ? 'Mark density — one mark colour, so it fills the whole pattern'
+    : 'Mark density — share of marks per color, always totalling 100%';
   box.appendChild(head);
+
   for(let k=1;k<S.colors.length;k++){
     const bi = brandIndexOf(S.colors[k]);
     const name = bi >= 0 ? BRAND[bi].name : S.colors[k];
-    if(S.weights[k] == null) S.weights[k] = 50;
     const wrap = document.createElement('div'); wrap.className = 'slider';
     const row = document.createElement('div'); row.className = 'row';
     const lbl = document.createElement('label'); lbl.className = 'lbl';
@@ -1381,23 +1447,37 @@ function renderRoles(){
       + aaBadge(contrastRatio(S.colors[k], S.colors[0]));
     const val = document.createElement('input'); val.className = 'val';
     val.type = 'text'; val.setAttribute('inputmode','decimal'); val.spellcheck = false;
-    val.setAttribute('aria-label', name + ' mark density value');
+    val.setAttribute('aria-label', name + ' share of marks, percent');
     val.value = Math.round(S.weights[k]);
+    val.disabled = single;
     row.append(lbl, val);
+
     const inp = document.createElement('input');
-    inp.type = 'range'; inp.min = '0'; inp.max = '100'; inp.step = '1'; inp.value = S.weights[k];
-    inp.setAttribute('aria-label', name + ' mark density');
+    inp.type = 'range'; inp.min = '0'; inp.max = '100'; inp.step = '1';
+    inp.value = Math.round(S.weights[k]);
+    inp.disabled = single;
+    inp.setAttribute('aria-label', name + ' share of marks');
+    inp.setAttribute('aria-valuetext', Math.round(S.weights[k]) + '%');
+
     const idx = k;
-    inp.addEventListener('input', ()=>{ S.weights[idx] = parseFloat(inp.value); if(document.activeElement!==val) val.value = Math.round(S.weights[idx]); });
+    const commit = v =>{
+      setWeight(idx, v);
+      syncRoleInputs();
+      roleRows.forEach(r=> r.range.setAttribute('aria-valuetext', Math.round(S.weights[r.idx] || 0) + '%'));
+    };
+    inp.addEventListener('input', ()=> commit(inp.value));
     val.addEventListener('change', ()=>{
-      let v = parseFloat(val.value);
-      if(isNaN(v)){ val.value = Math.round(S.weights[idx]); return; }
-      v = Math.min(100, Math.max(0, v)); S.weights[idx] = v; inp.value = v; val.value = Math.round(v);
+      const v = parseFloat(val.value);
+      if(isNaN(v)){ syncRoleInputs(); return; }
+      commit(v);
+      val.value = Math.round(S.weights[idx] || 0);
     });
     val.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); val.blur(); } });
     val.addEventListener('focus', ()=> val.select());
+
     wrap.append(row, inp);
     box.appendChild(wrap);
+    roleRows.push({ idx, range: inp, val });
   }
 }
 
@@ -1416,6 +1496,7 @@ function renderPalette(){
   } else {
     S.colors = cleaned; S.weights = cw; S.weights[0] = 0;
   }
+  normaliseWeights();   // older setups stored arbitrary weights, not shares
   renderSwatches();
   renderRoles();
 }
@@ -2191,6 +2272,7 @@ window.__NF = {
   isContextLost: ()=> contextLost,
   limits: ()=> ({ tileDim: tileLimit(), tileArea: TILE_AREA_BUDGET, dimMin: DIM_MIN, dimMax: DIM_MAX, areaMax: AREA_MAX }),
   fitFrameWidth, tilePlan, clampDim, axisMax, maskStops, maskGradient,
+  toShares, setWeight, normaliseWeights,
   contrastRatio, aaBadge, stepPct, tokenize, spanPx, colWidthPx, videoClock,
   composite, paintField, activeBlocks,
   render(){ sizeCanvas(); draw(canvas.width, canvas.height); }

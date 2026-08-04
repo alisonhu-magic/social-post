@@ -42,9 +42,9 @@ outcome before selecting it.
 **Colors**
 
 A fixed marketing palette — tap a color to add it, then pick its **Ground** dot to
-use it as the background; everything else becomes marks. Per-color **density** sliders
-control how often each color appears, and **AA badges** rate each mark's contrast
-against the ground.
+use it as the background; everything else becomes marks. **Density** sliders split the
+marks between colors as shares of 100%, so raising one lowers the rest, and **AA
+badges** rate each mark's contrast against the ground.
 
 </td>
 <td width="33%" valign="top">
