@@ -80,16 +80,14 @@ Other controls:
   designer's default; click the lock icon to unlock and edit.
 - **Guides** — a red grid overlay (margin + gutter) to help you align copy.
 
-What you see in the canvas is what you get: the PNG, MP4, HTML, and React outputs all
-share one set of layout and gradient definitions with the live preview.
+What you see in the canvas is what you get: the PNG, SVG, and MP4 outputs all share one
+set of layout and gradient definitions with the live preview.
 
-## Keyboard shortcuts
-
-| Key | Action |
-| --- | --- |
-| `Space` | Pause / resume the animation |
-| `R` | Reseed (new random variation) |
-| `E` | Export using the current format |
+Very large exports are rendered in tiles rather than a single oversized GPU buffer, so
+a 33-megapixel PNG comes out identical to a small one instead of silently going black.
+Each side can reach 8192px and the frame is capped at 33 megapixels overall — the
+largest that exports reliably. Ask for more and the tool trims the side you just typed
+into and tells you why.
 
 ## Brand palette
 
@@ -109,6 +107,63 @@ Colors are sourced from the Newton design-system primitives — no custom colors
 | Cream | `#E7E4DB` | Paper-tone grounds |
 
 Up to 8 colors can be active at once.
+
+## Known limits
+
+- **Export size.** The frame is capped at 8192px per side and 33 megapixels overall.
+  Beyond that the GPU runs out of room even with tiled rendering, so the cap keeps
+  unsupported sizes out of reach rather than letting an export fail late.
+- **Very large renders.** Above roughly 9 megapixels the shader's noise hash starts to
+  lose float precision, so grain can differ by about 1/255 from a smaller render of the
+  same frame. Not visible in practice, but it is why very large exports are not
+  bit-identical to scaled-down ones.
+- **Reduced motion.** The field animates regardless of the system reduced-motion
+  preference, since the motion is the artefact being designed. Pause is always one
+  click away in the canvas toolbar.
+- **MP4.** Recording uses the browser's `MediaRecorder`. Browsers that cannot encode
+  MP4 fall back to WebM, and the toast says so.
+
+## Development
+
+Everything lives in `index.html`. There is no build step.
+
+```bash
+npm install          # Playwright and its browser
+npm start            # serve at http://localhost:4173
+npm test             # run the full suite
+```
+
+### Tests
+
+The suite is Playwright-driven and runs against the real page in headless Chromium.
+
+| File | Covers |
+| --- | --- |
+| `tests/smoke.spec.js` | Boot, WebGL2 context, field thumbnails |
+| `tests/pure.spec.js` | Unit coverage for the exported pure helpers |
+| `tests/canvas.spec.js` | Formats, custom sizes, input clamping, grid overlay |
+| `tests/palette.spec.js` | Add/remove colours, ground promotion, density, limits |
+| `tests/text.spec.js` | Copy, italics, sizes, alignment, measure, escaping |
+| `tests/logo.spec.js` | Type, placement, colour, scrim, scaling |
+| `tests/mask.spec.js` | Fade direction, stops, slider coupling |
+| `tests/export.spec.js` | PNG/SVG/MP4, tiling, re-entrancy, failure recovery |
+| `tests/ui.spec.js` | Accordion, marks lock, playback, uploads, accessibility |
+| `tests/responsive.spec.js` | Layout across five viewports and on resize |
+| `tests/parity.spec.js` | Pixel-hash regression guard for the renderer |
+
+`parity.spec.js` compares rendered output against `tests/render-baseline.json`. It fails
+on any change to the shader, compositor, or export path that alters pixels. When a
+visual change is intentional, refresh the baseline and commit it:
+
+```bash
+npm run test:parity:update
+```
+
+Determinism comes from pinning `Math.random`, `performance.now`, and the
+`requestAnimationFrame` timestamp, which freezes the animation clock at zero.
+
+`index.html` exposes `window.__NF` for the tests: the state object, clock control,
+export status, and the pure helpers. Nothing in the UI reads it.
 
 ## Updating
 
