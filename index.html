@@ -62,10 +62,16 @@
   .title span{display:block; font-size:14px; font-weight:400; color:var(--gray-600)}
   .chips{display:flex; gap:var(--s2); margin-left:auto; flex-wrap:wrap}
 
+  /* Grid centring (not flex justify/align) so that at 1:1, where the frame can
+     be wider or taller than the stage, the overflow stays reachable by scroll
+     instead of spilling equally past both edges. */
   .canvas-wrap{
-    flex:1; display:flex; align-items:center; justify-content:center;
+    flex:1; display:grid; place-items:center;
     padding:var(--s7) var(--s5); min-height:0; overflow:hidden;
   }
+  .canvas-wrap.zoomed{overflow:auto}
+  /* 1:1 sizing is set in px by fitFrame() and must outrank the fit-mode cap */
+  .canvas-wrap.zoomed .frame{max-width:none}
   /* Width is set by fitFrame() so the aspect-ratio-derived height always fits
      the stage; the CSS values are the pre-first-frame fallback. */
   .frame{
@@ -466,6 +472,7 @@
     <footer class="stagefoot">
       <div>Export <b id="exportSize">1920 × 640</b></div>
       <div>Cells <b id="cellCount">—</b></div>
+      <div>Zoom <b id="zoomOut">—</b></div>
       <div>Seed <b id="seedOut">—</b></div>
     </footer>
   </main>
@@ -483,6 +490,14 @@
         <span class="x">×</span>
         <div class="field"><label for="ch">Height</label><input id="ch" type="number" min="16" max="8192" step="1" value="640"></div>
       </div>
+      <div style="height:var(--s3)"></div>
+      <label class="lbl" style="display:block; margin-bottom:var(--s2)">Preview</label>
+      <div class="seg" id="zoomSeg" role="group" aria-label="Preview zoom">
+        <button type="button" data-v="fit" aria-pressed="true">Fit</button>
+        <button type="button" data-v="1" aria-pressed="false">100%</button>
+      </div>
+      <p class="note" style="margin-top:var(--s3)">At <b>100%</b> one preview pixel is one export pixel, so type and logo read at their true size. The stage scrolls when the frame is larger than it.</p>
+      <div style="height:var(--s3)"></div>
       <button class="switch" id="maskToggle" role="switch" aria-checked="true">
         <span class="switch-label">Fade mask</span>
         <span class="switch-track"><span class="switch-knob"></span></span>
@@ -670,18 +685,80 @@ const FONT_FACES = {"300n": "@font-face{font-family:'Suisse BP Intl';font-style:
   st.textContent = Object.values(FONT_FACES).join('\n');
   document.head.appendChild(st); })();
 
-/* type scale — four steps on a ~1.61 ratio, anchored so the eyebrow (1.2) and
-   headline (5.0) defaults land exactly on a step. Expressed as a share of
-   canvas width so the proportion survives any export size. */
-const TYPE_STEPS = ['S','M','L','XL'];
-const TYPE_PCT   = [1.2, 1.9, 3.1, 5.0];
+/* ===================== layout tokens =====================
+   The approved 3:1 banner is the visual baseline. Every layout size lives here
+   as a share of one reference length, so the design is tuned in one place
+   instead of through numbers scattered across the renderers.
+
+   `basis` names the reference length a share is measured against. Each basis
+   has an exact CSS container-unit twin, which is what lets the live preview
+   stay declarative while the PNG/SVG/MP4 export mirrors it in pixels from this
+   same table:
+
+     w     canvas width     100cqw
+     h     canvas height    100cqh
+     min   short side       100cqmin
+     fitw  \  the largest baseline-ratio box that fits inside the canvas,
+     fith  /  measured on its width and on its height respectively
+
+   `fitw`/`fith` carry the scaling system. Both equal their baseline dimension
+   times min(W/1920, H/640), so a share written against them holds its baseline
+   proportion at every ratio. Type sits on `fitw` and the logo on `fith`, which
+   is what keeps the headline-to-logo relationship steady from ultra-wide
+   through to story.
+
+   Changing a group's basis moves preview and export together, so the two can
+   never drift apart. */
+const BASELINE = { w: 1920, h: 640 };
+const BASE_AR  = BASELINE.w / BASELINE.h;
+
+const REF_PX = {
+  w:    (W,H) => W,
+  h:    (W,H) => H,
+  min:  (W,H) => Math.min(W, H),
+  fitw: (W,H) => Math.min(W, H * BASE_AR),
+  fith: (W,H) => Math.min(W / BASE_AR, H)
+};
+const REF_CSS = {
+  w:    '100cqw',
+  h:    '100cqh',
+  min:  '100cqmin',
+  fitw: `min(100cqw, ${+(100 * BASE_AR).toFixed(4)}cqh)`,
+  fith: `min(${+(100 / BASE_AR).toFixed(4)}cqw, 100cqh)`
+};
+/* one share, resolved either to pixels (export) or to a CSS length (preview) */
+const refPx    = (basis, W, H) => REF_PX[basis](W, H);
+const tokenPx  = (pct, basis, W, H) => pct/100 * refPx(basis, W, H);
+const tokenCss = (pct, basis) => `calc(${pct/100} * ${REF_CSS[basis]})`;
+
+const TOKENS = {
+  /* four steps on a ~1.61 ratio, anchored so the eyebrow (1.2) and headline
+     (5.0) defaults land exactly on a step */
+  type: { basis:'fitw', labels:['S','M','L','XL'], steps:[1.2, 1.9, 3.1, 5.0] },
+  /* logo height; its width always follows from the artwork's aspect ratio */
+  logo: { basis:'fith', height:5.76 },
+  /* whitespace stays on the short side. Contain-scaled margins would pinch to
+     almost nothing on tall formats, and the measure already holds within a few
+     points of its baseline share without it. */
+  grid: { basis:'min', cols:12, margin:6, gutter:1.5 },
+  /* gap between stacked text blocks, and the measure in grid columns */
+  text: { basis:'fitw', gap:1.4, spanCols:7 }
+};
+
+const TYPE_STEPS = TOKENS.type.labels;
+const TYPE_PCT   = TOKENS.type.steps;
 /* tolerate step indices from older setups that used the 8-step ladder */
 const stepPct = i => TYPE_PCT[Math.min(Math.max(i|0, 0), TYPE_PCT.length - 1)];
+/* `scale` trims a role off its step without moving the ladder: uppercase copy
+   reads smaller than its point size, so the eyebrow rides a touch above S. */
 const ROLES = {
-  eyebrow:{weight:500, lead:1.30, track:0.10, upper:true,  faceN:'500n', faceI:'500n', ckey:'cEyebrow'},
-  head:   {weight:300, lead:1.06, track:-0.02, upper:false, faceN:'300n', faceI:'300i', ckey:'cHead'},
-  body:   {weight:400, lead:1.50, track:0.00,  upper:false, faceN:'400n', faceI:'400i', ckey:'cBody'}
+  eyebrow:{weight:500, lead:1.30, track:0.10, upper:true,  scale:1.10, faceN:'500n', faceI:'500n', ckey:'cEyebrow'},
+  head:   {weight:300, lead:1.06, track:-0.02, upper:false, scale:1, faceN:'300n', faceI:'300i', ckey:'cHead'},
+  body:   {weight:400, lead:1.50, track:0.00,  upper:false, scale:1, faceN:'400n', faceI:'400i', ckey:'cBody'}
 };
+const roleSize = (step, role) => stepPct(step) * role.scale;
+const typePx  = (step, role, W, H) => tokenPx(roleSize(step, role), TOKENS.type.basis, W, H);
+const typeCss = (step, role) => tokenCss(roleSize(step, role), TOKENS.type.basis);
 /* logo scrim keeps the mark legible over dense pattern — a soft elliptical
    wash of the background colour, centred on the mark and extended by a halo.
    One geometry helper drives the preview, PNG, HTML and React output. */
@@ -693,9 +770,11 @@ function scrimBg(pc){ return `radial-gradient(closest-side, ${pc} 0%, ${pc} ${SC
 /* Padding grows the box so closest-side yields radii (w/2+pad, h/2+pad), and an
    equal negative margin cancels it for layout so the mark itself stays on the
    grid margin. A background paints behind the glyph, so no z-index is needed. */
-function scrimStyle(pc, h){
-  const p = scrimPad(h).toFixed(3);
-  return `padding:${p}cqmin;margin:-${p}cqmin;background:${scrimBg(pc)}`;
+/* `len` is the logo height as a CSS length, so the halo follows whatever
+   reference the logo token scales against. */
+function scrimStyle(pc, len){
+  const p = `calc(${SCRIM_PAD} * ${len})`;
+  return `padding:${p};margin:calc(-1 * ${p});background:${scrimBg(pc)}`;
 }
 
 const LOGO = {
@@ -705,8 +784,10 @@ const LOGO = {
 
 /* logo colours — the three sanctioned marks */
 const LOGO_COLORS = {black:'#0E0E0F', white:'#FEFDF9', blue:'#5B83E4'};
-/* logo height as a share of the grid reference (min side) — one fixed size */
-const LOGO_SIZE = 4.8;
+/* logo height as a share of its reference length — one fixed size */
+const LOGO_SIZE = TOKENS.logo.height;
+const logoHeightPx  = (W,H) => tokenPx(LOGO_SIZE, TOKENS.logo.basis, W, H);
+const logoHeightCss = () => tokenCss(LOGO_SIZE, TOKENS.logo.basis);
 
 /* ===================== state ===================== */
 const S = {
@@ -718,7 +799,9 @@ const S = {
   weights:[0, 50, 50],                        // per-mark appearance density %, aligned to colors indices
   maskDir:'to right', maskOn:true, maskSolid:30, maskFade:70,   // maskDir follows text align via syncMaskToAlign()
   canvasW:1920, canvasH:640,
-  grid:{ show:false, cols:12, margin:6, gutter:1.5 },
+  grid:{ show:false, cols:TOKENS.grid.cols, margin:TOKENS.grid.margin, gutter:TOKENS.grid.gutter },
+  zoom:'fit',                                 // preview only: 'fit' to the stage, or '1' for 1:1
+
   logo:{ type:'lockup', pos:'tl', color:'white', plate:'none', plateIdx:0 },   // plateIdx 0 = ground/bg; backing always uses bg
   text:{
     on:true,
@@ -727,7 +810,7 @@ const S = {
     body:'',
     eyebrowStep:0, headStep:3, bodyStep:1,
     align:'left', vAlign:'middle',
-    cEyebrow:1, cHead:1, cBody:1, spanCols:7, gap:1.4
+    cEyebrow:1, cHead:1, cBody:1, spanCols:TOKENS.text.spanCols, gap:TOKENS.text.gap
   },
   seed:Math.random()*100, paused:false
 };
@@ -1002,13 +1085,16 @@ function fitFrameWidth(availW, availH, maxW, ratio){
 
 const FRAME_MAX_W = 1100;          // mirrors .frame max-width
 const frameEl = document.getElementById('frame');
+const zoomEl  = document.getElementById('zoomOut');
 const stacked = window.matchMedia('(max-width:960px)');
 let wrapPad = null;
 window.addEventListener('resize', ()=>{ wrapPad = null; });
 
 /* The frame takes its height from `aspect-ratio`, so it can only be constrained
    by width. Sizing it against the stage's height budget keeps portrait formats
-   fully visible instead of pushing the canvas and footer off screen. */
+   fully visible instead of pushing the canvas and footer off screen.
+   At zoom '1' the fit is bypassed: the frame takes the export width outright,
+   one CSS pixel per export pixel, and the stage scrolls. */
 function fitFrame(){
   const wrap = frameEl.parentElement;
   if(!wrapPad){
@@ -1020,21 +1106,54 @@ function fitFrame(){
   }
   // stacked layout scrolls, so only the desktop split view has a height budget
   const availH = stacked.matches ? Infinity : wrap.clientHeight - wrapPad.y;
-  const w = fitFrameWidth(wrap.clientWidth - wrapPad.x, availH, FRAME_MAX_W, S.ratio);
+  const w = S.zoom === '1'
+    ? Math.round(S.canvasW)
+    : fitFrameWidth(wrap.clientWidth - wrapPad.x, availH, FRAME_MAX_W, S.ratio);
   const px = w + 'px';
   if(frameEl.style.width !== px) frameEl.style.width = px;
   const ar = String(S.ratio);
   if(frameEl.dataset.ar !== ar){ frameEl.dataset.ar = ar; frameEl.style.aspectRatio = ar; }
+  showZoom(w);
 }
 
+let zoomShown = '';
+function showZoom(frameW){
+  const pct = Math.round(frameW / S.canvasW * 100) + '%';
+  if(pct === zoomShown || !zoomEl) return;
+  zoomShown = pct;
+  zoomEl.textContent = pct;
+}
+
+/* Fit keeps the frame under 1100 CSS px, but at 1:1 the frame alone can be
+   larger than the driver's buffer limits — back the pixel ratio off until the
+   drawing buffer fits, rather than letting the context fail to a black frame. */
+function previewDpr(cssW, cssH, dpr, maxDim, maxArea){
+  const fit = Math.min(dpr, maxDim / Math.max(cssW, cssH), Math.sqrt(maxArea / (cssW * cssH)));
+  return Math.max(Math.min(fit, dpr), 0.05);
+}
+
+let previewMaxDim = 0;
 function sizeCanvas(){
   fitFrame();
-  const dpr = Math.min(window.devicePixelRatio||1, 2);
   const cssW = canvas.clientWidth || 900;
   const cssH = Math.round(cssW / S.ratio);
+  if(!previewMaxDim) previewMaxDim = gl ? tileLimit() : FRAME_MAX_W;
+  const dpr = previewDpr(cssW, cssH, Math.min(window.devicePixelRatio||1, 2), previewMaxDim, TILE_AREA_BUDGET);
   canvas.style.aspectRatio = S.ratio;
   canvas.width  = Math.round(cssW*dpr);
   canvas.height = Math.round(cssH*dpr);
+}
+
+/* Recentre so the middle of the frame — where the copy usually sits — is what
+   the user lands on after switching to 1:1. */
+function setZoom(v){
+  S.zoom = v;
+  const wrap = frameEl.parentElement;
+  wrap.classList.toggle('zoomed', v === '1');
+  wrapPad = null;
+  sizeCanvas();
+  wrap.scrollLeft = (wrap.scrollWidth - wrap.clientWidth) / 2;
+  wrap.scrollTop  = (wrap.scrollHeight - wrap.clientHeight) / 2;
 }
 
 function loop(now){
@@ -1575,9 +1694,11 @@ $('pause').onclick = ()=> setPaused(!S.paused);
 /* ===================== grid + logo ===================== */
 /* Grid reference is the SHORT side, so whitespace keeps its optical weight
    as the canvas ratio changes. CSS gets this free via cqmin. */
-const gridRef  = (W,H) => Math.min(W,H);
-const marginPx = (W,H) => S.grid.margin/100 * gridRef(W,H);
-const gutterPx = (W,H) => S.grid.gutter/100 * gridRef(W,H);
+const gridRef   = (W,H) => refPx(TOKENS.grid.basis, W, H);
+const marginPx  = (W,H) => tokenPx(S.grid.margin, TOKENS.grid.basis, W, H);
+const gutterPx  = (W,H) => tokenPx(S.grid.gutter, TOKENS.grid.basis, W, H);
+const marginCss = () => tokenCss(S.grid.margin, TOKENS.grid.basis);
+const gutterCss = () => tokenCss(S.grid.gutter, TOKENS.grid.basis);
 function colWidthPx(W,H){
   const content = W - 2*marginPx(W,H);
   return (content - (S.grid.cols-1)*gutterPx(W,H)) / S.grid.cols;
@@ -1586,16 +1707,19 @@ function spanPx(W,H,n){
   n = Math.max(1, Math.min(S.grid.cols, n));
   return n*colWidthPx(W,H) + (n-1)*gutterPx(W,H);
 }
-/* CSS equivalents, in container-query units */
+/* CSS equivalent of spanPx, in container-query units. Columns divide the full
+   canvas width, so the content box is 100cqw less the margins. */
 const cssSpan = n => {
   n = Math.max(1, Math.min(S.grid.cols, n));
-  return `calc(${n} * ((100cqw - ${2*S.grid.margin}cqmin - ${(S.grid.cols-1)*S.grid.gutter}cqmin) / ${S.grid.cols}) + ${(n-1)*S.grid.gutter}cqmin)`;
+  const m = marginCss(), g = gutterCss();
+  const content = `(100cqw - 2 * ${m} - ${S.grid.cols - 1} * ${g})`;
+  return `calc(${n} * (${content} / ${S.grid.cols}) + ${n - 1} * ${g})`;
 };
 
 function renderGrid(){
   const f = $('frame'), ov = $('gridOv');
-  f.style.setProperty('--m', S.grid.margin + 'cqmin');
-  f.style.setProperty('--g', S.grid.gutter + 'cqmin');
+  f.style.setProperty('--m', marginCss());
+  f.style.setProperty('--g', gutterCss());
   ov.classList.toggle('on', S.grid.show);
   const inner = $('gCols');
   if(inner.childElementCount !== S.grid.cols){
@@ -1620,10 +1744,10 @@ function renderLogo(){
   L.style.justifyContent = j;
   L.style.alignItems = a;
   L.style.color = LOGO_COLORS[S.logo.color];
-  const h = LOGO_SIZE;
+  const len = logoHeightCss();
   const pc = palAt(S.logo.plateIdx);
-  let style = `height:${h}cqmin`;
-  if(S.logo.plate === 'scrim') style += ';' + scrimStyle(pc, h);
+  let style = `height:${len}`;
+  if(S.logo.plate === 'scrim') style += ';' + scrimStyle(pc, len);
   L.innerHTML = `<span class="plate ${S.logo.plate}" style="${style}">${logoSvg()}</span>`;
 }
 /* hex + alpha → rgba(), so the scrim fades to fully transparent
@@ -1641,7 +1765,7 @@ function logoDataUrl(){
 function drawLogo(ctx, W, H){
   if(S.logo.type === 'none') return Promise.resolve();
   const m = marginPx(W,H);
-  const h = LOGO_SIZE/100 * gridRef(W,H);
+  const h = logoHeightPx(W,H);
   const w = h * logoAR();
   const p = S.logo.pos;
   const x = p[1]==='l' ? m : p[1]==='r' ? W - m - w : (W - w)/2;
@@ -1680,6 +1804,7 @@ gseg('gCols_seg', S.grid, 'cols', v=>parseInt(v), ()=>{
   putDisp('tMeasure_v', S.text.spanCols + ' of ' + S.grid.cols);
   renderGrid(); renderText();
 });
+gseg('zoomSeg', S, 'zoom', v=>v, ()=>setZoom(S.zoom));
 gseg('lType',  S.logo, 'type',  v=>v, renderLogo);
 gseg('lPos',   S.logo, 'pos',   v=>v, renderLogo);
 gseg('lColor', S.logo, 'color', v=>v, renderLogo);
@@ -1742,14 +1867,14 @@ function renderText(){
   const T = S.text, box = $('txt');
   if(!T.on || !activeBlocks().length){ box.style.display = 'none'; return; }
   box.style.display = 'flex';
-  box.style.padding = S.grid.margin + 'cqmin';
+  box.style.padding = marginCss();
   box.style.justifyContent = {left:'flex-start', center:'center', right:'flex-end'}[T.align];
   box.style.alignItems = {top:'flex-start', middle:'center', bottom:'flex-end'}[T.vAlign];
 
   const inner = $('txtInner');
   inner.style.maxWidth  = cssSpan(T.spanCols);
   inner.style.textAlign = T.align;
-  inner.style.gap       = T.gap + 'cqw';
+  inner.style.gap       = tokenCss(T.gap, TOKENS.text.basis);
 
   const set = (id, txt, step, role)=>{
     const el = $(id), has = txt.trim().length > 0;
@@ -1757,7 +1882,7 @@ function renderText(){
     if(!has) return;
     el.innerHTML = mdItalic(role.upper ? txt.toUpperCase() : txt);
     el.style.color         = roleColor(role);
-    el.style.fontSize      = stepPct(step) + 'cqw';
+    el.style.fontSize      = typeCss(step, role);
     el.style.lineHeight    = role.lead;
     el.style.letterSpacing = role.track + 'em';
   };
@@ -1812,11 +1937,11 @@ function drawText(ctx, W, H){
 
   const pad  = marginPx(W,H);
   const maxW = spanPx(W,H,T.spanCols);
-  const gap  = T.gap/100 * W;
+  const gap  = tokenPx(T.gap, TOKENS.text.basis, W, H);
 
   let total = 0;
   blocks.forEach(b=>{
-    b.size  = stepPct(b.step)/100 * W;
+    b.size  = typePx(b.step, b.role, W, H);
     b.lines = wrapBlock(ctx, b, maxW);
     b.lineH = b.size * b.role.lead;
     b.h     = b.lines.length * b.lineH;
@@ -2275,9 +2400,10 @@ window.__NF = {
   isExporting: ()=> exporting,
   isContextLost: ()=> contextLost,
   limits: ()=> ({ tileDim: tileLimit(), tileArea: TILE_AREA_BUDGET, dimMin: DIM_MIN, dimMax: DIM_MAX, areaMax: AREA_MAX }),
-  fitFrameWidth, tilePlan, clampDim, axisMax, maskStops, maskGradient,
+  fitFrameWidth, previewDpr, setZoom, tilePlan, clampDim, axisMax, maskStops, maskGradient,
   toShares, setWeight, normaliseWeights, colorName,
-  contrastRatio, aaBadge, stepPct, tokenize, spanPx, colWidthPx, videoClock,
+  contrastRatio, aaBadge, stepPct, roleSize, tokenize, spanPx, colWidthPx, videoClock,
+  BASELINE, TOKENS, refPx, tokenPx, tokenCss, typePx, logoHeightPx, logoAR,
   composite, paintField, activeBlocks,
   render(){ sizeCanvas(); draw(canvas.width, canvas.height); }
 };

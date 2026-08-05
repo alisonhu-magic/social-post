@@ -95,21 +95,23 @@ test.describe('logo', () => {
     expect(transparentStop.slice(1, 4).map(Number).some(v => v > 0)).toBe(true);
   });
 
-  test('the logo scales with the frame instead of staying a fixed pixel size', async ({ page }) => {
+  test('the logo holds its baseline proportion at every ratio', async ({ page }) => {
     await pickSeg(page, 'lType', 'lockup');
-    // height is set in cqmin, so it tracks the frame's shorter side
-    const ratio = async format => {
+    // height is a share of the largest baseline-ratio box that fits, so the
+    // logo keeps the size it has on the approved 3:1 banner whatever the shape
+    const share = async format => {
       await page.selectOption('#format', format);
       await settle(page);
       return page.evaluate(() => {
         const l = document.querySelector('#logoLayer .plate').getBoundingClientRect();
         const f = document.getElementById('frame').getBoundingClientRect();
-        return l.height / Math.min(f.width, f.height);
+        const { w, h } = window.__NF.BASELINE;
+        return l.height / Math.min(f.width / (w / h), f.height);
       });
     };
-    const banner = await ratio('0');
-    const square = await ratio('2');
-    const story = await ratio('4');
+    const banner = await share('0');
+    const square = await share('2');
+    const story = await share('4');
     expect(Math.abs(banner - square)).toBeLessThan(0.01);
     expect(Math.abs(banner - story)).toBeLessThan(0.01);
   });

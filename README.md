@@ -67,11 +67,14 @@ without a visible seam.
 Other controls:
 
 - **Content → Text** — eyebrow, headline, and body copy, each with its own color and
-  one of four sizes (S–XL, a 1.61 scale set as a share of canvas width so the
-  proportion survives any export size). Wrap words in `*asterisks*` for italic.
+  one of four sizes (S–XL, a 1.61 scale). Wrap words in `*asterisks*` for italic.
 - **Content → Logo** — mark or full lockup, placed on a 3×3 grid at a single fixed
   size. Turn on the **Scrim** backing to wash a soft halo of the background color
   behind the mark so it stays legible over a dense pattern.
+- **Canvas → Preview** — **Fit** scales the frame to the stage (the footer reports the
+  scale); **100%** pins one preview pixel to one export pixel so type and logo read at
+  their true size while you tune them. The stage scrolls when the frame is the larger of
+  the two. Preview only — it never affects the export.
 - **Canvas → Fade mask** — on by default. Its direction follows your text alignment:
   left- or right-aligned copy fades in from that edge, and centered copy gets a
   symmetric band that clears the middle while the pattern still reads at both sides.
@@ -82,6 +85,28 @@ Other controls:
 
 What you see in the canvas is what you get: the PNG, SVG, and MP4 outputs all share one
 set of layout and gradient definitions with the live preview.
+
+### How the layout scales
+
+The composition is designed once, on the 3:1 banner at 1920×640, and every other shape
+is derived from it. Sizes live in one `TOKENS` table near the top of the script, each
+written as a percentage of a named reference length:
+
+| Reference | What it measures | CSS twin |
+| --- | --- | --- |
+| `w` / `h` | canvas width / height | `100cqw` / `100cqh` |
+| `min` | the short side | `100cqmin` |
+| `fitw` / `fith` | the largest 3:1 box that fits inside the canvas | `min(100cqw, 300cqh)` / `min(33.33cqw, 100cqh)` |
+
+`fitw` and `fith` both equal their baseline dimension times `min(W/1920, H/640)`, so
+anything measured against them keeps its baseline proportion at every ratio. Type sits
+on `fitw` and the logo on `fith`, which is what holds the headline-to-logo relationship
+steady from ultra-wide through to story. Whitespace deliberately stays on `min`: margins
+that scaled the same way would pinch to almost nothing on tall formats.
+
+Each reference resolves two ways from the same number — to a CSS length for the live
+preview and to pixels for the export — so the two cannot drift apart. Changing a group's
+basis moves both at once.
 
 Very large exports are rendered in tiles rather than a single oversized GPU buffer, so
 a 33-megapixel PNG comes out identical to a small one instead of silently going black.
@@ -145,6 +170,7 @@ The suite is Playwright-driven and runs against the real page in headless Chromi
 | `tests/palette.spec.js` | Add/remove colours, ground promotion, density, limits |
 | `tests/text.spec.js` | Copy, italics, sizes, alignment, measure, escaping |
 | `tests/logo.spec.js` | Type, placement, colour, scrim, scaling |
+| `tests/ratios.spec.js` | Layout tokens and the proportions held across aspect ratios |
 | `tests/mask.spec.js` | Fade direction, stops, slider coupling |
 | `tests/export.spec.js` | PNG/SVG/MP4, tiling, re-entrancy, failure recovery |
 | `tests/ui.spec.js` | Accordion, marks lock, playback, uploads, accessibility |
